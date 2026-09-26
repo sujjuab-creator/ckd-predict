@@ -1,0 +1,97 @@
+{
+  "model_name": "Random Forest",
+  "selection_criterion": "Selected 'Random Forest' because it achieved the highest composite medical-risk score (Recall: 1.0, F1-Score: 0.9637, ROC-AUC: 0.7998, Accuracy: 0.9307), ensuring optimal sensitivity for detecting CKD risk cases while minimizing false negatives.",
+  "trained_at": "2026-09-26T17:06:31.256583Z",
+  "dataset_summary": {
+    "total_rows": 1659,
+    "total_columns": 54,
+    "num_features": 51,
+    "missing_values": 0,
+    "duplicate_rows": 0,
+    "target_distribution": {
+      "1": 1524,
+      "0": 135
+    },
+    "train_rows": 1327,
+    "test_rows": 332
+  },
+  "metrics": {
+    "model_name": "Random Forest",
+    "accuracy": 0.9307,
+    "precision": 0.9299,
+    "recall": 1.0,
+    "f1_score": 0.9637,
+    "roc_auc": 0.7998,
+    "confusion_matrix": [
+      [
+        4,
+        23
+      ],
+      [
+        0,
+        305
+      ]
+    ],
+    "classification_report": {
+      "0": {
+        "precision": 1.0,
+        "recall": 0.14814814814814814,
+        "f1-score": 0.25806451612903225,
+        "support": 27.0
+      },
+      "1": {
+        "precision": 0.9298780487804879,
+        "recall": 1.0,
+        "f1-score": 0.9636650868878357,
+        "support": 305.0
+      },
+      "accuracy": 0.9307228915662651,
+      "macro avg": {
+        "precision": 0.9649390243902439,
+        "recall": 0.5740740740740741,
+        "f1-score": 0.6108648015084339,
+        "support": 332.0
+      },
+      "weighted avg": {
+        "precision": 0.9355807375844843,
+        "recall": 0.9307228915662651,
+        "f1-score": 0.9062819079405835,
+        "support": 332.0
+      }
+    }
+  },
+  "all_evaluations": [
+    {
+      "model": "Logistic Regression",
+      "accuracy": 0.744,
+      "precision": 0.9661,
+      "recall": 0.7475,
+      "f1_score": 0.8429,
+      "roc_auc": 0.7919
+    },
+    {
+      "model": "Random Forest",
+      "accuracy": 0.9307,
+      "precision": 0.9299,
+      "recall": 1.0,
+      "f1_score": 0.9637,
+      "roc_auc": 0.7998
+    },
+    {
+      "model": "Gradient Boosting",
+      "accuracy": 0.9247,
+      "precision": 0.9348,
+      "recall": 0.9869,
+      "f1_score": 0.9601,
+      "roc_auc": 0.7781
+    },
+    {
+      "model": "XGBoost",
+      "accuracy": 0.9217,
+      "precision": 0.9373,
+      "recall": 0.9803,
+      "f1_score": 0.9583,
+      "roc_auc": 0.7602
+    }
+  ]
+}
