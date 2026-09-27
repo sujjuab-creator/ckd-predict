@@ -94,7 +94,7 @@ Server will start on: **`http://localhost:5000`**
 
 ### Flows
 - **Patient:** `POST /api/auth/send-otp` (`purpose: patient_signup`) → `POST /api/auth/verify-otp` → `POST /api/auth/register/patient` (name, treating doctor, password, `verification_token`).
-- **Doctor:** same with `purpose: doctor_signup` → `POST /api/auth/register/doctor` (name, unique Doctor ID, password, `verification_token`).
+- **Doctor:** no self-registration. Doctor accounts are created by the Admin (`POST /api/admin/users` with `role: doctor`, unique Doctor ID and an initial password); doctors then sign in on the Doctor Sign In page. `POST /api/auth/register/doctor`, `POST /api/auth/register` with `role: doctor`, and OTP requests with `purpose: doctor_signup` all return `403` (`code: doctor_self_registration_disabled`).
 - `GET /api/auth/doctors` lists active doctors (id, doctor_id, name, specialty only).
 - `GET /api/auth/me/doctor` (patient) and `GET /api/auth/me/patients` (doctor) expose the care-team link.
 - `POST /api/auth/forgot-password` → emails a single-use link `FRONTEND_URL/#/reset-password/<token>` (30 min) → `POST /api/auth/reset-password`.

@@ -82,6 +82,11 @@ function MainApp() {
       }
     }
 
+    // There is no doctor self sign-up: send old /signup/doctor links to the Doctor Sign In page.
+    if (path === '/signup/doctor' || path.startsWith('/signup/doctor/')) {
+      navigateTo('/login/doctor');
+    }
+
     // The old public "assessment" pages exposed prediction without login.
     // Prediction is now available only inside authenticated dashboards.
     if (path === '/assessment' || path === '/assessment-result') {
@@ -108,9 +113,8 @@ function MainApp() {
       return <Login key={role} initialRole={role} onNavigate={navigateTo} />;
     }
     if (path === '/signup' || path.startsWith('/signup/')) {
-      const r = path.split('/')[2];
-      const role = r === 'doctor' ? 'doctor' : 'patient';
-      return <Signup key={role} role={role} onNavigate={navigateTo} />;
+      // Public sign-up is for patients only; doctor accounts are created by the Admin.
+      return <Signup onNavigate={navigateTo} />;
     }
     if (path.startsWith('/reset-password')) {
       // Token is case-sensitive: read it from the original (non-lowercased) path

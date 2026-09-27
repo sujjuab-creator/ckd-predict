@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Mail, Lock, User, ArrowLeft, Loader2, Send, ShieldCheck, Check, IdCard, Stethoscope, KeyRound, Eye, EyeOff,
+  Mail, Lock, User, ArrowLeft, Loader2, Send, ShieldCheck, Check, Stethoscope, KeyRound, Eye, EyeOff,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import apiService from '../services/api';
@@ -50,15 +50,19 @@ function BackendMissing({ status, message, code }) {
   );
 }
 
-export default function Signup({ onNavigate, role = 'patient' }) {
+/**
+ * Public self sign-up is for PATIENTS only. Doctor accounts are created by the
+ * hospital Administrator (Admin Dashboard) and doctors use the Doctor Sign In page.
+ */
+export default function Signup({ onNavigate }) {
   const { signup } = useAuth();
-  const isDoctor = role === 'doctor';
+  const role = 'patient';
 
   const [step, setStep] = useState(1);
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
   const [verificationToken, setVerificationToken] = useState('');
-  const [form, setForm] = useState({ name: '', doctorId: '', treatingDoctor: '', password: '', confirm: '' });
+  const [form, setForm] = useState({ name: '', treatingDoctor: '', password: '', confirm: '' });
   const [showPw, setShowPw] = useState(false);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState(null); // { status, message }
@@ -68,7 +72,7 @@ export default function Signup({ onNavigate, role = 'patient' }) {
 
   // Treating doctor list for patient registration (requires a public doctors endpoint)
   useEffect(() => {
-    if (isDoctor || step !== 3) return;
+    if (step !== 3) return;
     let alive = true;
     setDoctors({ loading: true, list: [], error: '' });
     apiService.getRegistrationDoctors().then((res) => {
@@ -77,7 +81,7 @@ export default function Signup({ onNavigate, role = 'patient' }) {
       setDoctors({ loading: false, list, error: res.ok ? (list.length ? '' : 'No active doctors are registered yet. Please contact the hospital.') : (res.data?.error || 'Could not load the doctor list.') });
     });
     return () => { alive = false; };
-  }, [isDoctor, step]);
+  }, [step]);
 
   const sendOtp = async (e) => {
     e?.preventDefault();
@@ -89,7 +93,7 @@ export default function Signup({ onNavigate, role = 'patient' }) {
     }
     setErrors({});
     setBusy(true);
-    const res = await apiService.sendEmailOtp(email.trim().toLowerCase(), role);
+    const res = await apiService.sendEmailOtp(email.trim().toLowerCase());
     setBusy(false);
     if (res.ok && res.data?.success) {
       setInfo(res.data.message || `A verification code was sent to ${email.trim()}.`);
@@ -108,7 +112,7 @@ export default function Signup({ onNavigate, role = 'patient' }) {
     }
     setErrors({});
     setBusy(true);
-    const res = await apiService.verifyEmailOtp(email.trim().toLowerCase(), otp.trim(), role);
+    const res = await apiService.verifyEmailOtp(email.trim().toLowerCase(), otp.trim());
     setBusy(false);
     if (res.ok && res.data?.success) {
       setVerificationToken(res.data.verification_token || '');
@@ -123,9 +127,8 @@ export default function Signup({ onNavigate, role = 'patient' }) {
     e.preventDefault();
     setProblem(null);
     const errs = {};
-    if (!form.name.trim()) errs.name = `${isDoctor ? 'Doctor' : 'Patient'} name is required.`;
-    if (isDoctor && !form.doctorId.trim()) errs.doctorId = 'Doctor ID is required.';
-    if (!isDoctor && !form.treatingDoctor) errs.treatingDoctor = 'Select your treating doctor.';
+    if (!form.name.trim()) errs.name = 'Patient name is required.';
+    if (!form.treatingDoctor) errs.treatingDoctor = 'Select your treating doctor.';
     if (form.password.length < 8 || !/[A-Za-z]/.test(form.password) || !/\d/.test(form.password)) {
       errs.password = 'Use at least 8 characters with a letter and a number.';
     }
@@ -140,7 +143,7 @@ export default function Signup({ onNavigate, role = 'patient' }) {
       email: email.trim().toLowerCase(),
       password: form.password,
       verification_token: verificationToken,
-      ...(isDoctor ? { doctor_id: form.doctorId.trim() } : { treating_doctor_id: form.treatingDoctor }),
+      treating_doctor_id: form.treatingDoctor,
     };
     const res = await signup(payload);
     setBusy(false);
@@ -163,10 +166,8 @@ export default function Signup({ onNavigate, role = 'patient' }) {
   return (
     <div className="auth-page">
       <AuthAside
-        title={isDoctor ? 'Join as a Doctor' : 'Create your patient account'}
-        text={isDoctor
-          ? 'Review patient CKD risk predictions, SHAP explanations and reports from one dashboard.'
-          : 'Run AI-assisted CKD risk predictions and keep your results and reports in one place.'}
+        title="Create your patient account"
+        text="View your CKD risk reports, your doctor's reviews and kidney-health information in one place."
       />
 
       <div className="auth-main">
@@ -174,7 +175,7 @@ export default function Signup({ onNavigate, role = 'patient' }) {
           <button className="back-link" onClick={() => onNavigate(`/login/${role}`)}>
             <ArrowLeft /> Back to Sign In
           </button>
-          <h1>{isDoctor ? 'Doctor Sign Up' : 'Patient Sign Up'}</h1>
+          <h1>Patient Sign Up</h1>
           <p className="sub">Verify your Gmail address, then complete your account details.</p>
 
           <Stepper step={step} />
@@ -224,24 +225,13 @@ export default function Signup({ onNavigate, role = 'patient' }) {
           {step === 3 && (
             <form onSubmit={createAccount} className="stack mt-16" noValidate>
               <div className="field">
-                <label className="label" htmlFor="su-name">{isDoctor ? 'Doctor Name' : 'Patient Name'}</label>
+                <label className="label" htmlFor="su-name">Patient Name</label>
                 <div className="input-icon">
                   <User />
                   <input id="su-name" className={`input ${errors.name ? 'invalid' : ''}`} value={form.name} onChange={set('name')} placeholder="Full name" autoComplete="name" />
                 </div>
                 {errors.name && <span className="error-text">{errors.name}</span>}
               </div>
-
-              {isDoctor && (
-                <div className="field">
-                  <label className="label" htmlFor="su-docid">Doctor ID</label>
-                  <div className="input-icon">
-                    <IdCard />
-                    <input id="su-docid" className={`input ${errors.doctorId ? 'invalid' : ''}`} value={form.doctorId} onChange={set('doctorId')} placeholder="Registration / employee ID" />
-                  </div>
-                  {errors.doctorId ? <span className="error-text">{errors.doctorId}</span> : <span className="hint">Must be unique — checked by the server.</span>}
-                </div>
-              )}
 
               <div className="field">
                 <label className="label" htmlFor="su-gmail">Gmail</label>
@@ -252,22 +242,20 @@ export default function Signup({ onNavigate, role = 'patient' }) {
                 <span className="hint">Verified address</span>
               </div>
 
-              {!isDoctor && (
-                <div className="field">
-                  <label className="label" htmlFor="su-doctor">Treating Doctor</label>
-                  <div className="input-icon">
-                    <Stethoscope />
-                    <select id="su-doctor" className={`select ${errors.treatingDoctor ? 'invalid' : ''}`} style={{ paddingLeft: 40 }}
-                      value={form.treatingDoctor} onChange={set('treatingDoctor')} disabled={doctors.loading || doctors.list.length === 0}>
-                      <option value="">{doctors.loading ? 'Loading doctors…' : doctors.list.length ? 'Select your doctor' : 'No doctors available'}</option>
-                      {doctors.list.map((d) => (
-                        <option key={d.id} value={d.id}>{d.name}{d.doctor_id ? ` (${d.doctor_id})` : ''}{(d.specialty || d.specialty_or_department) ? ` — ${d.specialty || d.specialty_or_department}` : ''}</option>
-                      ))}
-                    </select>
-                  </div>
-                  {errors.treatingDoctor ? <span className="error-text">{errors.treatingDoctor}</span> : doctors.error ? <span className="hint">{doctors.error}</span> : null}
+              <div className="field">
+                <label className="label" htmlFor="su-doctor">Treating Doctor</label>
+                <div className="input-icon">
+                  <Stethoscope />
+                  <select id="su-doctor" className={`select ${errors.treatingDoctor ? 'invalid' : ''}`} style={{ paddingLeft: 40 }}
+                    value={form.treatingDoctor} onChange={set('treatingDoctor')} disabled={doctors.loading || doctors.list.length === 0}>
+                    <option value="">{doctors.loading ? 'Loading doctors…' : doctors.list.length ? 'Select your doctor' : 'No doctors available'}</option>
+                    {doctors.list.map((d) => (
+                      <option key={d.id} value={d.id}>{d.name}{d.doctor_id ? ` (${d.doctor_id})` : ''}{(d.specialty || d.specialty_or_department) ? ` — ${d.specialty || d.specialty_or_department}` : ''}</option>
+                    ))}
+                  </select>
                 </div>
-              )}
+                {errors.treatingDoctor ? <span className="error-text">{errors.treatingDoctor}</span> : doctors.error ? <span className="hint">{doctors.error}</span> : null}
+              </div>
 
               <div className="grid-2" style={{ gap: 14 }}>
                 <div className="field">
@@ -290,7 +278,7 @@ export default function Signup({ onNavigate, role = 'patient' }) {
               </div>
 
               <button className="btn btn-primary btn-lg btn-block" disabled={busy}>
-                {busy ? <Loader2 className="spin" /> : <Check />} {isDoctor ? 'Create Doctor Account' : 'Create Patient Account'}
+                {busy ? <Loader2 className="spin" /> : <Check />} Create Patient Account
               </button>
             </form>
           )}

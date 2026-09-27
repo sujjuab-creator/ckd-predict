@@ -97,19 +97,20 @@ def _reset_email(link):
 def register():
     """
     POST /api/auth/register
-    Role-dispatching registration kept for compatibility. Only Patient and Doctor
-    self-registration (with verified email OTP) is allowed. Admin accounts can
-    never be created through public registration.
+    Role-dispatching registration kept for compatibility. Only Patient
+    self-registration (with verified email OTP) is allowed. Doctor accounts are
+    created by the hospital Administrator, and Admin accounts can never be
+    created through public registration.
     """
     data = request.get_json(silent=True) or {}
     role = (data.get('role') or '').strip().lower()
     if role == 'patient':
         return _register_patient(data)
     if role == 'doctor':
-        return _register_doctor(data)
+        return _doctor_self_registration_disabled()
     if role == 'admin':
         return jsonify({'success': False, 'error': 'Admin accounts cannot be registered publicly.'}), 403
-    return jsonify({'success': False, 'error': 'Role must be "patient" or "doctor".'}), 400
+    return jsonify({'success': False, 'error': 'Role must be "patient".'}), 400
 
 
 @auth_bp.route('/register/patient', methods=['POST'])
@@ -118,10 +119,22 @@ def register_patient():
     return _register_patient(request.get_json(silent=True) or {})
 
 
+DOCTOR_SELF_REGISTRATION_DISABLED = ('Doctor accounts are created by the hospital administrator. '
+                                     'Please contact the administrator for your sign-in credentials.')
+
+
+def _doctor_self_registration_disabled():
+    return jsonify({'success': False, 'error': DOCTOR_SELF_REGISTRATION_DISABLED,
+                    'code': 'doctor_self_registration_disabled'}), 403
+
+
 @auth_bp.route('/register/doctor', methods=['POST'])
 def register_doctor():
-    """POST /api/auth/register/doctor -> create a Doctor after verified email OTP."""
-    return _register_doctor(request.get_json(silent=True) or {})
+    """
+    POST /api/auth/register/doctor -> always 403.
+    Doctors cannot create their own accounts; the Admin creates them (POST /api/admin/users).
+    """
+    return _doctor_self_registration_disabled()
 
 
 def _find_verified_registration(email, purpose, token):
@@ -216,53 +229,14 @@ def _register_patient(data):
         return jsonify({'success': False, 'error': 'Database is unavailable. Please try again later.'}), 503
 
 
-def _register_doctor(data):
-    try:
-        values, err = _common_registration_checks(data, 'doctor_signup')
-        if err:
-            return err
-
-        code = auth.normalize_doctor_code(data.get('doctor_id') or data.get('doctor_code'))
-        if not auth.is_valid_doctor_code(code):
-            return jsonify({'success': False, 'error': 'Doctor ID must be 3-50 characters using letters, numbers, "-", "_" or "/".'}), 400
-        if User.query.filter(User.doctor_code == code).first():
-            return jsonify({'success': False, 'error': 'This Doctor ID is already registered.'}), 409
-
-        user = User(
-            name=values['name'],
-            email=values['email'],
-            password_hash=hash_password(values['password']),
-            role='doctor',
-            status='Active',
-            is_temporary_password=False,
-            doctor_code=code,
-            specialty_or_department=(data.get('specialty') or data.get('specialty_or_department') or '').strip()[:100] or None,
-            phone=(data.get('phone') or '').strip()[:30] or None,
-        )
-        db.session.add(user)
-        values['record'].registration_used = True
-        db.session.commit()
-
-        return jsonify({
-            'success': True,
-            'message': 'Doctor account created successfully. You can now sign in.',
-            'user': user.to_dict(),
-        }), 201
-    except IntegrityError:
-        db.session.rollback()
-        return jsonify({'success': False, 'error': 'This email or Doctor ID is already registered.'}), 409
-    except (OperationalError, DatabaseError):
-        db.session.rollback()
-        return jsonify({'success': False, 'error': 'Database is unavailable. Please try again later.'}), 503
-
-
 # ---------------------------------------------------------------------------
 # Email OTP
 # ---------------------------------------------------------------------------
 @auth_bp.route('/send-otp', methods=['POST'])
 def send_otp():
     """
-    POST /api/auth/send-otp  { "email": "...", "purpose": "patient_signup" | "doctor_signup" }
+    POST /api/auth/send-otp  { "email": "...", "purpose": "patient_signup" }
+    (Doctor self-registration is disabled, so "doctor_signup" codes are refused with 403.)
     Sends a one-time code by email. The response never contains the code and
     does not reveal whether the email already has an account.
     """
@@ -270,8 +244,10 @@ def send_otp():
     email = auth.normalize_email(data.get('email'))
     purpose = (data.get('purpose') or '').strip().lower()
 
+    if purpose == 'doctor_signup':
+        return _doctor_self_registration_disabled()
     if purpose not in auth.SIGNUP_PURPOSES:
-        return jsonify({'success': False, 'error': 'Invalid purpose. Use "patient_signup" or "doctor_signup".'}), 400
+        return jsonify({'success': False, 'error': 'Invalid purpose. Use "patient_signup".'}), 400
     if not auth.is_valid_email(email):
         return jsonify({'success': False, 'error': 'A valid email address is required.'}), 400
     if not email_available():
@@ -351,6 +327,9 @@ def verify_otp():
     purpose = (data.get('purpose') or '').strip().lower()
     otp = str(data.get('otp') or '').strip()
 
+    if purpose == 'doctor_signup':
+        return jsonify({'success': False, 'verified': False, 'error': DOCTOR_SELF_REGISTRATION_DISABLED,
+                        'code': 'doctor_self_registration_disabled'}), 403
     if purpose not in auth.SIGNUP_PURPOSES:
         return jsonify({'success': False, 'verified': False, 'error': 'Invalid purpose.'}), 400
     if not auth.is_valid_email(email) or not otp.isdigit() or len(otp) != 6:

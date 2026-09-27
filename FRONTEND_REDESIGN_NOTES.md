@@ -10,7 +10,7 @@ configuration files were changed. Hash routing (`#/...`) is preserved.
 - Public, education-only Home page (no prediction form): Hero, About CKD, CKD Stages, Healthy Kidney
   Habits, Platform Features, How It Works, Prediction CTA, FAQ, Contact, Medical Disclaimer.
 - Login with Patient / Doctor / Admin tabs using the existing `POST /api/auth/login`.
-- Patient and Doctor 3-step Gmail OTP sign-up screens (see "Backend requirements").
+- Patient 3-step Gmail OTP sign-up screen (see "Backend requirements"). There is no doctor sign-up: doctor accounts are created by the Admin and doctors use the Doctor Sign In page.
 - Patient, Doctor and Admin dashboards rebuilt on a shared layout with a mobile drawer sidebar.
 - **All dashboards now use real backend data.** Mock data and the in-browser fake predictor are no
   longer imported anywhere.
@@ -22,7 +22,7 @@ configuration files were changed. Hash routing (`#/...`) is preserved.
 
 | Area | Routes |
 |---|---|
-| Public | `#/`, `#/login`, `#/login/doctor`, `#/login/admin`, `#/signup`, `#/signup/patient`, `#/signup/doctor` |
+| Public | `#/`, `#/login`, `#/login/doctor`, `#/login/admin`, `#/signup`, `#/signup/patient` (patients only — `#/signup/doctor` redirects to `#/login/doctor`; doctor accounts are created by the Admin) |
 | Patient | `#/patient`, `#/patient/prediction`, `#/patient/predictions`, `#/patient/history`, `#/patient/result`, `#/patient/result/:id`, `#/patient/shap`, `#/patient/reports`, `#/patient/profile`, `#/patient/doctor` |
 | Doctor | `#/doctor`, `#/doctor/patients`, `#/doctor/patients/:id`, `#/doctor/search`, `#/doctor/predictions`, `#/doctor/predictions/:patientId`, `#/doctor/result/:id`, `#/doctor/history`, `#/doctor/shap`, `#/doctor/shap/:id`, `#/doctor/reports`, `#/doctor/analytics`, `#/doctor/profile` |
 | Admin | `#/admin`, `#/admin/patients`, `#/admin/doctors`, `#/admin/users`, `#/admin/analytics`, `#/admin/predictions`, `#/admin/models`, `#/admin/system`, `#/admin/settings`, `#/admin/profile` |

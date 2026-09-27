@@ -39,7 +39,6 @@ export default function Footer({ currentPath = '/', onNavigate }) {
             <ul>
               <li><button onClick={() => onNavigate('/login')}>Sign In</button></li>
               <li><button onClick={() => onNavigate('/signup/patient')}>Patient Sign Up</button></li>
-              <li><button onClick={() => onNavigate('/signup/doctor')}>Doctor Sign Up</button></li>
             </ul>
           </div>
         </div>

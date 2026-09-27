@@ -69,10 +69,9 @@ export const apiService = {
 
   // 2. Authentication
   async register(userData) {
-    // Patient/Doctor self-registration (requires a verification_token from verify-otp)
-    const role = userData?.role;
-    const endpoint = role === 'patient' || role === 'doctor' ? `/auth/register/${role}` : '/auth/register';
-    return await fetchAPI(endpoint, {
+    // Patient self-registration only (requires a verification_token from verify-otp).
+    // Doctor accounts are created by the Admin via createUser().
+    return await fetchAPI('/auth/register/patient', {
       method: 'POST',
       body: JSON.stringify(userData),
     });
@@ -90,21 +89,21 @@ export const apiService = {
   },
 
   // ------------------------------------------------------------------
-  // Email OTP self-registration (Patient / Doctor). The OTP is emailed by the
+  // Email OTP self-registration (Patient only). The OTP is emailed by the
   // backend and never returned by the API. Verification returns a
   // verification_token that the registration endpoint re-checks server-side.
   // ------------------------------------------------------------------
-  async sendEmailOtp(email, role) {
+  async sendEmailOtp(email) {
     return await fetchAPI('/auth/send-otp', {
       method: 'POST',
-      body: JSON.stringify({ email, purpose: `${role}_signup` }),
+      body: JSON.stringify({ email, purpose: 'patient_signup' }),
     });
   },
 
-  async verifyEmailOtp(email, otp, role) {
+  async verifyEmailOtp(email, otp) {
     return await fetchAPI('/auth/verify-otp', {
       method: 'POST',
-      body: JSON.stringify({ email, otp, purpose: `${role}_signup` }),
+      body: JSON.stringify({ email, otp, purpose: 'patient_signup' }),
     });
   },
 

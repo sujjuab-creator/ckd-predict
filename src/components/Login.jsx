@@ -164,7 +164,7 @@ export default function Login({ onNavigate, initialRole = 'patient' }) {
               <>New Patient? <button className="link" onClick={() => onNavigate('/signup/patient')}>Sign Up</button></>
             )}
             {role === 'doctor' && (
-              <>New Doctor? <button className="link" onClick={() => onNavigate('/signup/doctor')}>Sign Up</button></>
+              <span>Doctor accounts are created by the hospital administrator. Contact the administrator if you need access.</span>
             )}
             {role === 'admin' && (
               <span>Administrator credentials are configured securely on the server. There is no public admin registration.</span>

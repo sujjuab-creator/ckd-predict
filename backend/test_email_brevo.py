@@ -201,7 +201,7 @@ class BrevoRouteTests(BrevoTestBase):
     def test_otp_brevo_failure_returns_generic_502(self, mock_urlopen):
         mock_urlopen.side_effect = http_error(401, b'{"code":"unauthorized","message":"Key not found"}')
         with self.assertLogs('ckd.email', level='WARNING'):
-            res = self.client.post('/api/auth/send-otp', json={'email': 'x.user@gmail.com', 'purpose': 'doctor_signup'})
+            res = self.client.post('/api/auth/send-otp', json={'email': 'x.user@gmail.com', 'purpose': 'patient_signup'})
         self.assertEqual(res.status_code, 502)
         body = res.get_data(as_text=True)
         self.assertIn('could not be sent', body)
@@ -211,7 +211,7 @@ class BrevoRouteTests(BrevoTestBase):
         # Failed delivery does not consume the resend cooldown
         mock_urlopen.side_effect = None
         mock_urlopen.return_value = ok_response(201)
-        again = self.client.post('/api/auth/send-otp', json={'email': 'x.user@gmail.com', 'purpose': 'doctor_signup'})
+        again = self.client.post('/api/auth/send-otp', json={'email': 'x.user@gmail.com', 'purpose': 'patient_signup'})
         self.assertEqual(again.status_code, 200)
 
     @patch('urllib.request.urlopen')

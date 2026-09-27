@@ -116,10 +116,10 @@ class BaseCase(unittest.TestCase):
             db.session.commit()
 
     def register_doctor(self, email='dr.rao@gmail.com', code='DOC-001', name='Dr. Anita Rao', password='Doctor123'):
-        token = self.verified_token(email, 'doctor_signup')
-        return self.post('/api/auth/register/doctor', {
-            'email': email, 'verification_token': token, 'name': name,
-            'doctor_id': code, 'password': password, 'specialty': 'Nephrology'})
+        """Doctors are created by the Admin (there is no doctor self-registration)."""
+        return self.post('/api/admin/users', {
+            'email': email, 'name': name, 'role': 'doctor',
+            'doctor_id': code, 'password': password, 'specialty': 'Nephrology'}, self.admin_token())
 
     def doctor_user_id(self, email):
         with self.app.app_context():
@@ -139,10 +139,12 @@ class OtpTests(BaseCase):
             self.assertNotEqual(rec.otp_hash, otp)
             self.assertNotIn(otp, rec.otp_hash)
 
-    def test_02_doctor_otp_request(self):
+    def test_02_doctor_otp_request_refused(self):
+        # Doctor self-registration is disabled: no doctor sign-up code is ever issued
         status, data = self.post('/api/auth/send-otp', {'email': 'new.doc@gmail.com', 'purpose': 'doctor_signup'})
-        self.assertEqual(status, 200)
-        self.assertIn('doctor', self.outbox[-1]['text'])
+        self.assertEqual(status, 403)
+        self.assertEqual(data['code'], 'doctor_self_registration_disabled')
+        self.assertEqual(self.outbox, [])
 
     def test_02b_admin_purpose_rejected(self):
         status, _ = self.post('/api/auth/send-otp', {'email': 'x@gmail.com', 'purpose': 'admin_signup'})
@@ -157,7 +159,7 @@ class OtpTests(BaseCase):
         self.assertFalse(data['verified'])
         # A code for the wrong purpose is also rejected
         status, _ = self.post('/api/auth/verify-otp', {'email': 'p1@gmail.com', 'otp': otp, 'purpose': 'doctor_signup'})
-        self.assertEqual(status, 400)
+        self.assertEqual(status, 403)
 
     def test_04_expired_otp_rejected(self):
         otp = self.request_otp('p2@gmail.com', 'patient_signup')
@@ -237,9 +239,8 @@ class RegistrationTests(BaseCase):
         # Token for another email
         other = self.verified_token('someone.else@gmail.com', 'patient_signup')
         self.assertEqual(self.post('/api/auth/register/patient', {**body, 'verification_token': other})[0], 403)
-        # Doctor-signup token cannot create a patient
-        doc_token = self.verified_token('pat@gmail.com', 'doctor_signup')
-        self.assertEqual(self.post('/api/auth/register/patient', {**body, 'verification_token': doc_token})[0], 403)
+        # Doctor-signup codes are never issued
+        self.assertEqual(self.post('/api/auth/send-otp', {'email': 'pat@gmail.com', 'purpose': 'doctor_signup'})[0], 403)
         # Correct
         self.expire_cooldown('pat@gmail.com')
         token = self.verified_token('pat@gmail.com', 'patient_signup')
@@ -250,11 +251,18 @@ class RegistrationTests(BaseCase):
         # Token is single use
         self.assertIn(self.post('/api/auth/register/patient', {**body, 'verification_token': token})[0], (403, 409))
 
-    def test_08_doctor_registration_requires_verified_otp(self):
+    def test_08_doctor_self_registration_disabled(self):
         body = {'email': 'doc@gmail.com', 'name': 'Dr. Karan Shah', 'doctor_id': 'DOC-777', 'password': 'Doctor123'}
-        self.assertEqual(self.post('/api/auth/register/doctor', body)[0], 403)
-        token = self.verified_token('doc@gmail.com', 'doctor_signup')
-        status, data = self.post('/api/auth/register/doctor', {**body, 'verification_token': token})
+        for url, payload in (('/api/auth/register/doctor', body),
+                             ('/api/auth/register/doctor', {**body, 'verification_token': 'anything'}),
+                             ('/api/auth/register', {**body, 'role': 'doctor'})):
+            status, data = self.post(url, payload)
+            self.assertEqual(status, 403, url)
+            self.assertEqual(data['code'], 'doctor_self_registration_disabled')
+        with self.app.app_context():
+            self.assertIsNone(User.query.filter_by(email='doc@gmail.com').first())
+        # The Admin-created doctor account still works
+        status, data = self.register_doctor(email='doc@gmail.com', code='DOC-777')
         self.assertEqual(status, 201, data)
         self.assertEqual(data['user']['doctor_id'], 'DOC-777')
         with self.app.app_context():
@@ -264,7 +272,7 @@ class RegistrationTests(BaseCase):
 
     def test_09_duplicate_email_rejected_globally(self):
         # Admin email cannot be re-used by self-registration (no OTP is ever issued for it)
-        self.post('/api/auth/send-otp', {'email': 'admin@ckdpredict.com', 'purpose': 'doctor_signup'})
+        self.post('/api/auth/send-otp', {'email': 'admin@ckdpredict.com', 'purpose': 'patient_signup'})
         self.assertIsNone(OTP_RE.search(self.outbox[-1]['text']))
         # Race: email registered between verification and account creation
         self.register_doctor(email='dup@gmail.com', code='DOC-100')
@@ -351,13 +359,14 @@ class RegistrationTests(BaseCase):
                                                         'name': 'Evil', 'password': 'Admin12345'})
         self.assertEqual(status, 403)
         self.assertEqual(self.post('/api/auth/send-otp', {'email': 'evil@gmail.com', 'purpose': 'admin'})[0], 400)
-        # A role field smuggled into doctor registration is ignored
-        token = self.verified_token('sneaky@gmail.com', 'doctor_signup')
-        status, data = self.post('/api/auth/register/doctor', {
+        # A role field smuggled into patient registration is ignored
+        self.register_doctor()
+        token = self.verified_token('sneaky@gmail.com', 'patient_signup')
+        status, data = self.post('/api/auth/register/patient', {
             'email': 'sneaky@gmail.com', 'verification_token': token, 'name': 'Sneaky',
-            'doctor_id': 'DOC-900', 'password': 'Doctor123', 'role': 'admin'})
+            'treating_doctor_id': self.doctor_user_id('dr.rao@gmail.com'), 'password': 'Patient123', 'role': 'admin'})
         self.assertEqual(status, 201)
-        self.assertEqual(data['user']['role'], 'doctor')
+        self.assertEqual(data['user']['role'], 'patient')
         with self.app.app_context():
             self.assertEqual(User.query.filter_by(role='admin').count(), 1)
 
@@ -382,11 +391,13 @@ class RegistrationTests(BaseCase):
         self.assertEqual(self.login('login.pat@gmail.com', 'Wrong123', 'patient')[0], 401)
         self.assertEqual(self.login('login.pat@gmail.com', 'Patient123', 'doctor')[0], 401)
 
-    def test_19_doctor_login_after_self_registration(self):
+    def test_19_doctor_login_with_admin_created_credentials(self):
         self.register_doctor()
         status, data = self.login('dr.rao@gmail.com', 'Doctor123', 'doctor')
         self.assertEqual(status, 200)
         self.assertEqual(data['user']['role'], 'doctor')
+        self.assertIn('token', data)
+        self.assertEqual(self.login('dr.rao@gmail.com', 'Wrong123', 'doctor')[0], 401)
 
 
 class AdminTests(BaseCase):
