@@ -110,7 +110,7 @@ Server will start on: **`http://localhost:5000`**
 ### Email configuration (environment variables only)
 See `.env.example`. `MAIL_PROVIDER=smtp` needs `MAIL_SERVER`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM`.
 For Gmail use `smtp.gmail.com:587` with TLS and a **Google App Password** (requires 2-Step Verification) — not your normal password.
-**Render free web services block outbound SMTP (ports 25/465/587)** — on the free plan use `MAIL_PROVIDER=brevo` (`BREVO_API_KEY`) or `MAIL_PROVIDER=sendgrid` (`SENDGRID_API_KEY`) with a verified sender address.
+**Render free web services block outbound SMTP (ports 25/465/587)** — on the free plan use `MAIL_PROVIDER=brevo` (`BREVO_API_KEY`), `MAIL_PROVIDER=sendgrid` (`SENDGRID_API_KEY`), or `MAIL_PROVIDER=resend` (`RESEND_API_KEY`) with a verified sender address.
 If email is not configured the OTP and reset endpoints return `503` with `code: "email_not_configured"`; nothing is faked.
 
 ### Database migration

@@ -11,6 +11,7 @@ All settings come from environment variables (never hard-coded):
                   MAIL_USE_TLS (STARTTLS, default true), MAIL_USE_SSL (default false)
   Brevo:          BREVO_API_KEY      (HTTPS API, works where SMTP ports are blocked)
   SendGrid:       SENDGRID_API_KEY   (HTTPS API, works where SMTP ports are blocked)
+  Resend:         RESEND_API_KEY     (HTTPS API, works where SMTP ports are blocked)
 
 Message bodies and credentials are never logged.
 """
@@ -60,6 +61,8 @@ def is_configured():
         return bool(_env('BREVO_API_KEY'))
     if provider == 'sendgrid':
         return bool(_env('SENDGRID_API_KEY'))
+    if provider == 'resend':
+        return bool(_env('RESEND_API_KEY'))
     return False
 
 
@@ -134,7 +137,29 @@ def _send_sendgrid(to_email, subject, text_body, html_body):
     )
 
 
-_PROVIDERS = {'smtp': _send_smtp, 'brevo': _send_brevo, 'sendgrid': _send_sendgrid}
+def _send_resend(to_email, subject, text_body, html_body):
+    payload = {
+        'from': formataddr((_env('MAIL_FROM_NAME', 'CKD PREDICT'), _env('MAIL_FROM'))),
+        'to': [to_email],
+        'subject': subject,
+        'text': text_body,
+    }
+    if html_body:
+        payload['html'] = html_body
+
+    _post_json(
+        'https://api.resend.com/emails',
+        {'Authorization': f"Bearer {_env('RESEND_API_KEY')}", 'Content-Type': 'application/json'},
+        payload,
+    )
+
+
+_PROVIDERS = {
+    'smtp': _send_smtp,
+    'brevo': _send_brevo,
+    'sendgrid': _send_sendgrid,
+    'resend': _send_resend,
+}
 
 
 def send_email(to_email, subject, text_body, html_body=None):
