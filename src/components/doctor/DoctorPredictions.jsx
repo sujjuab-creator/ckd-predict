@@ -1,254 +1,54 @@
 import React, { useState } from 'react';
-import { 
-  Activity, Filter, Eye, Calendar, AlertTriangle, CheckCircle2, X, Search 
-} from 'lucide-react';
-import { MOCK_PREDICTIONS } from '../../data/mockPredictions';
-import PredictionResultView from '../PredictionResultView';
-import { predictCKD } from '../../utils/ckdPredictor';
-import { MOCK_PATIENTS } from '../../data/mockPatients';
+import { Users } from 'lucide-react';
+import PredictionForm from '../prediction/PredictionForm';
+import { PageHeader, Card, Loading, ErrorState, EmptyState } from '../ui/UI';
+import { rawPredId } from '../../utils/format';
 
-export default function DoctorPredictions({ onNavigate }) {
-  const [resultFilter, setResultFilter] = useState('All'); // 'All' | 'CKD' | 'Not CKD'
-  const [dateFilter, setDateFilter] = useState('all'); // 'all' | 'recent' | 'custom'
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
-  const [selectedPrediction, setSelectedPrediction] = useState(null);
+/** Doctor runs a prediction for a selected patient via POST /api/predictions. */
+export default function DoctorPredictions({ onNavigate, patients, reloadAll, reloadPredictions, preselectPatient }) {
+  const [patientId, setPatientId] = useState(preselectPatient ? String(preselectPatient) : '');
 
-  const filteredPredictions = MOCK_PREDICTIONS.filter(pred => {
-    // Result Filter
-    if (resultFilter !== 'All' && pred.result !== resultFilter) {
-      return false;
-    }
+  if (patients.loading) return <Loading label="Loading patients…" />;
+  if (patients.error) return <ErrorState message={patients.error} onRetry={reloadAll} />;
+  if (patients.list.length === 0) {
+    return (
+      <Card>
+        <EmptyState icon={Users} title="No patients registered" message="A patient record is required before a prediction can be saved. Patient accounts are created by the administrator." />
+      </Card>
+    );
+  }
 
-    // Date Filter
-    if (dateFilter === 'custom') {
-      if (startDate && pred.date < startDate) return false;
-      if (endDate && pred.date > endDate) return false;
-    } else if (dateFilter === 'recent') {
-      if (pred.date < '2026-09-01') return false;
-    }
-
-    return true;
-  });
-
-  const handleOpenDetails = (pred) => {
-    const patientObj = MOCK_PATIENTS.find(p => p.id === pred.patientId) || MOCK_PATIENTS[0];
-    const fullResult = predictCKD({
-      ...patientObj.clinicalInfo,
-      ...pred,
-      age: patientObj.age,
-      gender: patientObj.gender,
-      sc: pred.sc || patientObj.lastCreatinine
-    });
-    setSelectedPrediction(fullResult);
+  const handlePredicted = async (data) => {
+    await reloadPredictions();
+    const id = rawPredId(data.prediction_id);
+    onNavigate(id ? `/doctor/result/${id}` : '/doctor/history');
   };
 
+  const selected = patients.list.find((p) => String(p.id) === String(patientId));
+
   return (
-    <div className="space-y-8">
-      
-      {/* Clinical Disclaimer Banner */}
-      <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 flex items-start space-x-3 text-slate-300 text-xs">
-        <AlertCircle className="w-5 h-5 text-sky-400 shrink-0 mt-0.5" />
-        <div>
-          <span className="font-bold text-sky-400">Clinical System Notice: </span>
-          <span>This system provides an AI-assisted CKD risk prediction based on supplied data and is not a medical diagnosis. Results should be reviewed by a qualified healthcare professional.</span>
-        </div>
-      </div>
-
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-white">Doctor Predictions Log</h1>
-        <p className="text-xs sm:text-sm text-slate-400 mt-1">
-          Review clinical AI risk predictions, model outputs, and status logs.
-        </p>
-      </div>
-
-      {/* FILTERS TOOLBAR */}
-      <div className="glass-panel p-6 rounded-3xl border border-slate-800 space-y-4">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          
-          {/* Result Filter Buttons */}
-          <div className="flex items-center space-x-2 text-xs">
-            <span className="text-slate-400 font-medium flex items-center space-x-1">
-              <Filter className="w-3.5 h-3.5 text-teal-400" />
-              <span>Result Filter:</span>
-            </span>
-
-            {['All', 'CKD', 'Not CKD'].map(res => (
-              <button
-                key={res}
-                onClick={() => setResultFilter(res)}
-                className={`px-3.5 py-1.5 rounded-lg font-semibold text-xs transition-all ${
-                  resultFilter === res 
-                    ? res === 'CKD' 
-                      ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40 font-bold'
-                      : res === 'Not CKD'
-                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 font-bold'
-                      : 'bg-teal-500/20 text-teal-400 border border-teal-500/40 font-bold'
-                    : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
-                }`}
-              >
-                {res}
-              </button>
-            ))}
-          </div>
-
-          {/* Date Filter Range UI */}
-          <div className="flex items-center space-x-3 text-xs">
-            <Calendar className="w-4 h-4 text-slate-400" />
-            <select
-              value={dateFilter}
-              onChange={(e) => setDateFilter(e.target.value)}
-              className="bg-slate-950 border border-slate-800 text-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:border-teal-500"
-            >
-              <option value="all">All Dates</option>
-              <option value="recent">Recent (Sep 2026)</option>
-              <option value="custom">Custom Date Range</option>
-            </select>
-          </div>
-
-        </div>
-
-        {/* Custom Date Range Picker */}
-        {dateFilter === 'custom' && (
-          <div className="flex flex-wrap items-center gap-4 pt-3 border-t border-slate-800 text-xs">
-            <div className="flex items-center space-x-2">
-              <span className="text-slate-400">From:</span>
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="bg-slate-950 border border-slate-800 text-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:border-teal-500"
-              />
-            </div>
-
-            <div className="flex items-center space-x-2">
-              <span className="text-slate-400">To:</span>
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="bg-slate-950 border border-slate-800 text-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:border-teal-500"
-              />
-            </div>
-
-            {(startDate || endDate) && (
-              <button
-                onClick={() => { setStartDate(''); setEndDate(''); }}
-                className="text-xs text-rose-400 hover:text-rose-300 font-semibold"
-              >
-                Clear Dates
-              </button>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* PREDICTIONS TABLE */}
-      <div className="glass-panel rounded-3xl p-6 border border-slate-800 space-y-4">
-        <h2 className="text-base font-bold text-white flex items-center space-x-2">
-          <Activity className="w-5 h-5 text-teal-400" />
-          <span>All Clinical Predictions ({filteredPredictions.length})</span>
-        </h2>
-
-        {filteredPredictions.length === 0 ? (
-          <div className="text-center py-12 space-y-3 bg-slate-900/50 rounded-2xl border border-slate-800">
-            <Activity className="w-10 h-10 text-slate-600 mx-auto" />
-            <p className="text-sm font-semibold text-slate-300">No predictions matched your filters</p>
-            <button
-              onClick={() => { setResultFilter('All'); setDateFilter('all'); setStartDate(''); setEndDate(''); }}
-              className="px-4 py-2 rounded-xl bg-teal-500/10 hover:bg-teal-500/20 text-teal-400 border border-teal-500/30 text-xs font-bold transition-all"
-            >
-              Reset All Filters
-            </button>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs text-left border-collapse">
-              <thead>
-                <tr className="border-b border-slate-800 text-slate-400 uppercase text-[10px]">
-                  <th className="py-3 px-4">Prediction ID</th>
-                  <th className="py-3 px-4">Patient</th>
-                  <th className="py-3 px-4">Date</th>
-                  <th className="py-3 px-4">Result</th>
-                  <th className="py-3 px-4">Model</th>
-                  <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4 text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800/80">
-                {filteredPredictions.map(pred => (
-                  <tr key={pred.id} className="hover:bg-slate-900/50 transition-colors">
-                    <td className="py-3.5 px-4 font-mono font-bold text-teal-400">{pred.id}</td>
-                    <td className="py-3.5 px-4 font-bold text-white">
-                      {pred.patientName}
-                      <button
-                        onClick={() => onNavigate(`/doctor/patients/${pred.patientId}`)}
-                        className="block text-[10px] text-teal-400 hover:underline font-mono font-normal"
-                      >
-                        {pred.patientId}
-                      </button>
-                    </td>
-                    <td className="py-3.5 px-4 text-slate-300 font-mono">{pred.date}</td>
-                    <td className="py-3.5 px-4">
-                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold border ${
-                        pred.result === 'CKD'
-                          ? 'bg-rose-500/20 text-rose-400 border-rose-500/30'
-                          : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
-                      }`}>
-                        {pred.result}
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-4 text-slate-300">{pred.model}</td>
-                    <td className="py-3.5 px-4">
-                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold border ${
-                        pred.status === 'Pending Review'
-                          ? 'bg-amber-500/20 text-amber-400 border-amber-500/30'
-                          : 'bg-sky-500/20 text-sky-400 border-sky-500/30'
-                      }`}>
-                        {pred.status}
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-4 text-right">
-                      <button
-                        onClick={() => handleOpenDetails(pred)}
-                        className="px-3 py-1.5 rounded-lg bg-teal-500/10 hover:bg-teal-500/20 text-teal-400 border border-teal-500/30 font-bold text-xs transition-all flex items-center space-x-1 ml-auto"
-                      >
-                        <Eye className="w-3.5 h-3.5" />
-                        <span>View Details</span>
-                      </button>
-                    </td>
-                  </tr>
+    <PredictionForm
+      key={patientId || 'none'}
+      patientDbId={selected ? Number(selected.id) : undefined}
+      onPredicted={handlePredicted}
+      disabledReason={selected ? '' : 'Select the patient this prediction belongs to before running it.'}
+      header={(
+        <>
+          <PageHeader title="CKD Risk Prediction" subtitle="Enter the patient's health information to generate an AI-assisted risk prediction." />
+          <div className="card card-pad">
+            <div className="field" style={{ maxWidth: 460 }}>
+              <label className="label" htmlFor="doc-patient">Patient <span className="req">*</span></label>
+              <select id="doc-patient" className="select" value={patientId} onChange={(e) => setPatientId(e.target.value)}>
+                <option value="">Select a patient…</option>
+                {patients.list.map((p) => (
+                  <option key={p.id} value={p.id}>{p.patient_id}{p.gender ? ` · ${p.gender}` : ''}</option>
                 ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {/* Prediction Details Modal */}
-      {selectedPrediction && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
-          <div className="relative w-full max-w-4xl bg-slate-950 border border-slate-800 rounded-3xl p-6 space-y-4 my-8">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-              <h3 className="text-lg font-bold text-white">Prediction Result Analysis</h3>
-              <button
-                onClick={() => setSelectedPrediction(null)}
-                className="p-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-white"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              </select>
+              <span className="hint">The prediction will be saved to this patient's record.</span>
             </div>
-
-            <PredictionResultView
-              predictionResult={selectedPrediction}
-              currentUser={{ name: 'Doctor User', role: 'doctor' }}
-              onBackToForm={() => setSelectedPrediction(null)}
-            />
           </div>
-        </div>
+        </>
       )}
-
-    </div>
+    />
   );
 }

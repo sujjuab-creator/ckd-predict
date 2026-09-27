@@ -1,672 +1,410 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Users, Search, Filter, Eye, Edit3, UserX, UserCheck, 
-  CheckCircle2, X, AlertCircle, PlusCircle, Key, Trash2, Shield, Stethoscope, UserCheck as PatientIcon
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  Users, Search, Pencil, UserX, UserCheck, PlusCircle, KeyRound, Trash2, RefreshCw, Loader2,
 } from 'lucide-react';
 import apiService from '../../services/api';
-import { MOCK_USERS } from '../../data/mockUsers';
+import {
+  Card, PageHeader, Loading, ErrorState, EmptyState, Modal, Toast, Alert, StatusBadge, RoleBadge, Field,
+} from '../ui/UI';
+import { formatDate, initials } from '../../utils/format';
 
-export default function AdminUsers({ onNavigate }) {
-  const [usersList, setUsersList] = useState(MOCK_USERS);
+const EMPTY_CREATE = { name: '', email: '', password: '', role: 'doctor', specialty_or_department: '', phone: '', gender: 'Unspecified', doctor_id: '', treating_doctor_id: '' };
+
+/**
+ * Account management using the existing admin endpoints:
+ * GET/POST /api/admin/users, PUT/DELETE /api/admin/users/:id,
+ * POST /api/admin/users/:id/reset-password, POST /api/admin/users/:id/toggle-status.
+ *
+ * `fixedRole` limits the view to doctors or patients (Manage Doctors / Manage Patients).
+ */
+export default function AdminUsers({ fixedRole = null, title, subtitle, patientsByUserId = null, predictionCountByPatient = null, onUsersChanged }) {
+  const [users, setUsers] = useState({ loading: true, error: '', list: [] });
   const [searchQuery, setSearchQuery] = useState('');
-  const [roleFilter, setRoleFilter] = useState('All');
-  const [loading, setLoading] = useState(false);
-  const [toastNotice, setToastNotice] = useState(null);
+  const [roleFilter, setRoleFilter] = useState(fixedRole || 'All');
+  const [statusFilter, setStatusFilter] = useState('All');
+  const [toast, setToast] = useState('');
 
-  // Modal States
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [selectedUserModal, setSelectedUserModal] = useState(null);
-  const [isResetModalOpen, setIsResetModalOpen] = useState(null);
-
-  // Create Form State
-  const [createForm, setCreateForm] = useState({
-    name: '',
-    email: '',
-    password: '',
-    role: 'doctor',
-    specialty_or_department: '',
-    phone: '',
-    gender: 'Unspecified'
-  });
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createForm, setCreateForm] = useState({ ...EMPTY_CREATE, role: fixedRole || 'doctor' });
   const [formError, setFormError] = useState('');
-  const [resetPasswordInput, setResetPasswordInput] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [editUser, setEditUser] = useState(null);
+  const [resetUser, setResetUser] = useState(null);
+  const [resetPassword, setResetPassword] = useState('');
+  const [deleteUser, setDeleteUser] = useState(null);
+  const [activeDoctors, setActiveDoctors] = useState([]);
 
-  // Fetch users on mount
-  useEffect(() => {
-    fetchUsers();
+  // Active doctors for treating-doctor selection (GET /api/auth/doctors)
+  const fetchDoctors = useCallback(async () => {
+    const res = await apiService.getRegistrationDoctors();
+    if (res.ok && res.data?.success) setActiveDoctors(res.data.doctors || []);
   }, []);
+  useEffect(() => { fetchDoctors(); }, [fetchDoctors]);
+  const doctorLabel = (id) => {
+    if (!id) return '—';
+    const d = activeDoctors.find((x) => Number(x.id) === Number(id));
+    return d ? `${d.name}${d.doctor_id ? ` (${d.doctor_id})` : ''}` : `Doctor #${id} (inactive)`;
+  };
 
-  const fetchUsers = async () => {
-    setLoading(true);
-    try {
-      const res = await apiService.getUsers();
-      if (res.ok && res.data?.users) {
-        setUsersList(res.data.users);
-      }
-    } catch (err) {
-      // Fallback to local state if offline
-    } finally {
-      setLoading(false);
+  const fetchUsers = useCallback(async () => {
+    setUsers((u) => ({ ...u, loading: true, error: '' }));
+    const res = await apiService.getUsers(fixedRole ? { role: fixedRole } : {});
+    if (res.ok && res.data?.success) {
+      setUsers({ loading: false, error: '', list: res.data.users || [] });
+    } else {
+      setUsers({ loading: false, error: res.data?.error || 'Unable to load user accounts.', list: [] });
     }
+  }, [fixedRole]);
+
+  useEffect(() => { fetchUsers(); }, [fetchUsers]);
+
+  const afterChange = (msg) => {
+    setToast(msg);
+    fetchUsers();
+    fetchDoctors();
+    onUsersChanged?.();
   };
 
-  const showToast = (msg) => {
-    setToastNotice(msg);
-    setTimeout(() => setToastNotice(null), 4000);
-  };
-
-  // 1. Create Doctor / Patient Account
+  // 1. Create Doctor / Patient account
   const handleCreateSubmit = async (e) => {
     e.preventDefault();
     setFormError('');
-
     if (!createForm.name.trim() || !createForm.email.trim() || !createForm.password.trim()) {
-      setFormError('Full Name, Email, and Temporary Password are required.');
+      setFormError('Full name, email and temporary password are required.');
       return;
     }
-
-    if (createForm.role === 'admin') {
-      setFormError('Creation of additional Admin accounts is strictly prohibited.');
+    if (createForm.password.length < 6) {
+      setFormError('Temporary password must be at least 6 characters.');
       return;
     }
-
-    try {
-      const res = await apiService.createUser(createForm);
-      if (res.ok && res.data?.success) {
-        showToast(`Account successfully created for ${createForm.name} (${createForm.role.toUpperCase()})`);
-        setIsCreateModalOpen(false);
-        setCreateForm({
-          name: '',
-          email: '',
-          password: '',
-          role: 'doctor',
-          specialty_or_department: '',
-          phone: '',
-          gender: 'Unspecified'
-        });
-        fetchUsers();
-      } else {
-        setFormError(res.data?.error || 'Failed to create account.');
-      }
-    } catch (err) {
-      setFormError('Network error while creating account.');
+    if (!['doctor', 'patient'].includes(createForm.role)) {
+      setFormError('Only Doctor and Patient accounts can be created. There is exactly one Admin account.');
+      return;
+    }
+    setBusy(true);
+    const payload = { ...createForm };
+    if (payload.role !== 'doctor') delete payload.doctor_id;
+    if (payload.role !== 'patient' || !payload.treating_doctor_id) delete payload.treating_doctor_id;
+    const res = await apiService.createUser(payload);
+    setBusy(false);
+    if (res.ok && res.data?.success) {
+      setCreateOpen(false);
+      setCreateForm({ ...EMPTY_CREATE, role: fixedRole || 'doctor' });
+      afterChange(res.data.message || `Account created for ${createForm.name}.`);
+    } else {
+      setFormError(res.data?.error || 'Failed to create account.');
     }
   };
 
-  // 2. Toggle Status (Activate / Deactivate)
-  const handleToggleDeactivate = async (user) => {
-    if (user.role === 'admin') {
-      showToast('The System Administrator account cannot be deactivated.');
-      return;
-    }
-
-    try {
-      const res = await apiService.toggleUserStatus(user.id);
-      if (res.ok && res.data?.success) {
-        showToast(`Account status updated to ${res.data.status} for ${user.name}`);
-        fetchUsers();
-      } else {
-        // Local state toggle fallback
-        setUsersList(prev => prev.map(u => {
-          if (u.id === user.id) {
-            const nextStatus = u.status === 'Active' ? 'Inactive' : 'Active';
-            showToast(`User ${u.name} status updated to ${nextStatus}`);
-            return { ...u, status: nextStatus };
-          }
-          return u;
-        }));
-      }
-    } catch {
-      showToast('Failed to toggle status.');
-    }
+  // 2. Toggle status
+  const handleToggle = async (user) => {
+    if (user.role === 'admin') { setToast('The System Administrator account cannot be deactivated.'); return; }
+    const res = await apiService.toggleUserStatus(user.id);
+    if (res.ok && res.data?.success) afterChange(res.data.message || `Status updated for ${user.name}.`);
+    else setToast(res.data?.error || 'Failed to change account status.');
   };
 
-  // 3. Reset Password
-  const handleResetPasswordSubmit = async (e) => {
+  // 3. Reset password
+  const handleReset = async (e) => {
     e.preventDefault();
-    if (!resetPasswordInput || resetPasswordInput.length < 6) {
-      showToast('Password must be at least 6 characters long.');
-      return;
-    }
-
-    try {
-      const res = await apiService.resetUserPassword(isResetModalOpen.id, resetPasswordInput);
-      if (res.ok && res.data?.success) {
-        showToast(`Temporary password updated for ${isResetModalOpen.name}`);
-        setIsResetModalOpen(null);
-        setResetPasswordInput('');
-      } else {
-        showToast(res.data?.error || 'Failed to reset password.');
-      }
-    } catch {
-      showToast('Network error reset password.');
+    if (resetPassword.length < 6) { setFormError('Password must be at least 6 characters long.'); return; }
+    setBusy(true);
+    const res = await apiService.resetUserPassword(resetUser.id, resetPassword);
+    setBusy(false);
+    if (res.ok && res.data?.success) {
+      setResetUser(null);
+      setResetPassword('');
+      setFormError('');
+      afterChange(res.data.message || `Temporary password set for ${resetUser.name}.`);
+    } else {
+      setFormError(res.data?.error || 'Failed to reset password.');
     }
   };
 
-  // 4. Update User Details
-  const handleUpdateSubmit = async (e) => {
+  // 4. Update details
+  const handleUpdate = async (e) => {
     e.preventDefault();
-    if (!selectedUserModal) return;
-
-    try {
-      const res = await apiService.updateUser(selectedUserModal.id, selectedUserModal);
-      if (res.ok && res.data?.success) {
-        showToast(`Account details updated for ${selectedUserModal.name}`);
-        setSelectedUserModal(null);
-        fetchUsers();
-      } else {
-        showToast(res.data?.error || 'Failed to update user details.');
-      }
-    } catch {
-      showToast('Update failed.');
+    setBusy(true);
+    const res = await apiService.updateUser(editUser.id, editUser);
+    setBusy(false);
+    if (res.ok && res.data?.success) {
+      setEditUser(null);
+      setFormError('');
+      afterChange(res.data.message || `Account updated for ${editUser.name}.`);
+    } else {
+      setFormError(res.data?.error || 'Failed to update account.');
     }
   };
 
-  // 5. Delete User
-  const handleDeleteUser = async (user) => {
-    if (user.role === 'admin') {
-      showToast('The System Administrator account cannot be deleted.');
-      return;
-    }
-
-    if (!window.confirm(`Are you sure you want to permanently delete account ${user.name} (${user.email})?`)) {
-      return;
-    }
-
-    try {
-      const res = await apiService.deleteUser(user.id);
-      if (res.ok && res.data?.success) {
-        showToast(`Account ${user.name} removed successfully.`);
-        fetchUsers();
-      } else {
-        showToast(res.data?.error || 'Failed to delete user account.');
-      }
-    } catch {
-      showToast('Delete operation failed.');
-    }
+  // 5. Delete
+  const handleDelete = async () => {
+    setBusy(true);
+    const res = await apiService.deleteUser(deleteUser.id);
+    setBusy(false);
+    const name = deleteUser.name;
+    setDeleteUser(null);
+    if (res.ok && res.data?.success) afterChange(res.data.message || `${name} was removed.`);
+    else setToast(res.data?.error || 'Failed to delete account.');
   };
 
-  const filteredUsers = usersList.filter(u => {
-    const q = searchQuery.toLowerCase();
-    const matchesQuery = !q || (
-      String(u.id).toLowerCase().includes(q) ||
-      (u.name && u.name.toLowerCase().includes(q)) ||
-      (u.email && u.email.toLowerCase().includes(q))
-    );
+  const filtered = useMemo(() => users.list.filter((u) => {
+    const q = searchQuery.trim().toLowerCase();
+    const matchQ = !q || String(u.id).includes(q) || u.name?.toLowerCase().includes(q) || u.email?.toLowerCase().includes(q);
+    const matchR = roleFilter === 'All' || u.role === roleFilter;
+    const matchS = statusFilter === 'All' || u.status === statusFilter;
+    return matchQ && matchR && matchS;
+  }), [users.list, searchQuery, roleFilter, statusFilter]);
 
-    const matchesRole = roleFilter === 'All' || (u.role && u.role.toLowerCase() === roleFilter.toLowerCase());
-
-    return matchesQuery && matchesRole;
-  });
+  const isPatientView = fixedRole === 'patient';
+  const noun = fixedRole === 'doctor' ? 'Doctor' : fixedRole === 'patient' ? 'Patient' : 'Account';
 
   return (
-    <div className="space-y-8">
-      
-      {/* Toast Notice */}
-      {toastNotice && (
-        <div className="fixed top-24 right-4 z-50 bg-slate-900 border-2 border-indigo-500 text-indigo-300 px-5 py-3.5 rounded-2xl shadow-2xl flex items-center space-x-3 animate-fade-in">
-          <CheckCircle2 className="w-5 h-5 text-indigo-400 shrink-0" />
-          <p className="text-xs font-bold">{toastNotice}</p>
-        </div>
-      )}
-
-      {/* Clinical Notice */}
-      <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 flex items-start space-x-3 text-slate-300 text-xs">
-        <AlertCircle className="w-5 h-5 text-sky-400 shrink-0 mt-0.5" />
-        <div>
-          <span className="font-bold text-sky-400">Hospital Administrative Notice: </span>
-          <span>This system provides an AI-assisted CKD risk prediction based on supplied data and is not a medical diagnosis. Results should be reviewed by a qualified healthcare professional.</span>
-        </div>
-      </div>
-
-      {/* Header & Create Action */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-white">Hospital Account Management</h1>
-          <p className="text-xs sm:text-sm text-slate-400 mt-1">
-            System Administrator portal: Provision Doctor & Patient accounts, manage access credentials and security roles.
-          </p>
-        </div>
-
-        <button
-          onClick={() => {
-            setFormError('');
-            setIsCreateModalOpen(true);
-          }}
-          className="px-5 py-3 rounded-2xl bg-gradient-to-r from-indigo-600 to-sky-500 hover:from-indigo-500 hover:to-sky-400 text-white font-bold text-xs shadow-lg shadow-indigo-500/20 flex items-center justify-center space-x-2 shrink-0 transition-all"
-        >
-          <PlusCircle className="w-4 h-4" />
-          <span>Provision New Account</span>
-        </button>
-      </div>
-
-      {/* SEARCH & FILTERS TOOLBAR */}
-      <div className="glass-panel p-6 rounded-3xl border border-slate-800 flex flex-col md:flex-row items-center justify-between gap-4">
-        <div className="relative w-full md:w-80">
-          <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-3.5" />
-          <input
-            type="text"
-            placeholder="Search by User ID, Name, or Email..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors"
-          />
-        </div>
-
-        <div className="flex items-center space-x-2 text-xs w-full md:w-auto overflow-x-auto">
-          <span className="text-slate-400 font-medium flex items-center space-x-1">
-            <Filter className="w-3.5 h-3.5 text-indigo-400" />
-            <span>Role Filter:</span>
-          </span>
-          {['All', 'Patient', 'Doctor', 'Admin'].map(r => (
-            <button
-              key={r}
-              onClick={() => setRoleFilter(r)}
-              className={`px-3.5 py-1.5 rounded-lg font-semibold text-xs transition-all ${
-                roleFilter.toLowerCase() === r.toLowerCase()
-                  ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/40 font-bold'
-                  : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
-              }`}
-            >
-              {r}
+    <div className="stack-lg">
+      <PageHeader
+        title={title || 'User Management'}
+        subtitle={subtitle || 'Create and manage Doctor and Patient accounts. There is exactly one Administrator account.'}
+        actions={(
+          <>
+            <button className="btn btn-ghost" onClick={fetchUsers}><RefreshCw /> Refresh</button>
+            <button className="btn btn-primary" onClick={() => { setFormError(''); setCreateForm({ ...EMPTY_CREATE, role: fixedRole || 'doctor' }); setCreateOpen(true); }}>
+              <PlusCircle /> Add {noun}
             </button>
-          ))}
+          </>
+        )}
+      />
+
+      <Card noBody>
+        <div className="toolbar">
+          <div className="search-box">
+            <Search />
+            <input className="input" placeholder="Search by name, email or ID…" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} aria-label="Search accounts" />
+          </div>
+          {!fixedRole && (
+            <select className="select" value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} aria-label="Filter by role">
+              <option value="All">All roles</option>
+              <option value="admin">Admin</option>
+              <option value="doctor">Doctors</option>
+              <option value="patient">Patients</option>
+            </select>
+          )}
+          <select className="select" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} aria-label="Filter by status">
+            <option value="All">All statuses</option>
+            <option value="Active">Active</option>
+            <option value="Inactive">Inactive</option>
+          </select>
+          <span className="small muted" style={{ marginLeft: 'auto' }}>{users.loading ? '' : `${filtered.length} of ${users.list.length}`}</span>
         </div>
-      </div>
 
-      {/* USERS TABLE */}
-      <div className="glass-panel rounded-3xl p-6 border border-slate-800 space-y-4">
-        <h2 className="text-base font-bold text-white flex items-center space-x-2">
-          <Users className="w-5 h-5 text-indigo-400" />
-          <span>System User Accounts ({filteredUsers.length})</span>
-        </h2>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs text-left border-collapse">
-            <thead>
-              <tr className="border-b border-slate-800 text-slate-400 uppercase text-[10px]">
-                <th className="py-3 px-4">User ID</th>
-                <th className="py-3 px-4">Name</th>
-                <th className="py-3 px-4">Email Address</th>
-                <th className="py-3 px-4">Role</th>
-                <th className="py-3 px-4">Status</th>
-                <th className="py-3 px-4 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/80">
-              {filteredUsers.map(u => (
-                <tr key={u.id} className="hover:bg-slate-900/50 transition-colors">
-                  <td className="py-3.5 px-4 font-mono font-bold text-indigo-400">USR-{String(u.id).padStart(3, '0')}</td>
-                  <td className="py-3.5 px-4 font-bold text-white flex items-center space-x-2">
-                    {u.role === 'admin' && <Shield className="w-3.5 h-3.5 text-indigo-400 shrink-0" />}
-                    {u.role === 'doctor' && <Stethoscope className="w-3.5 h-3.5 text-teal-400 shrink-0" />}
-                    {u.role === 'patient' && <PatientIcon className="w-3.5 h-3.5 text-sky-400 shrink-0" />}
-                    <span>{u.name}</span>
-                  </td>
-                  <td className="py-3.5 px-4 text-slate-300 font-mono">{u.email}</td>
-                  <td className="py-3.5 px-4 capitalize">
-                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                      u.role === 'admin' 
-                        ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30'
-                        : u.role === 'doctor'
-                        ? 'bg-teal-500/20 text-teal-400 border border-teal-500/30'
-                        : 'bg-sky-500/20 text-sky-400 border border-sky-500/30'
-                    }`}>
-                      {u.role}
-                    </span>
-                  </td>
-                  <td className="py-3.5 px-4">
-                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                      u.status === 'Active' || u.status === 'active'
-                        ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                        : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
-                    }`}>
-                      {u.status || 'Active'}
-                    </span>
-                  </td>
-                  <td className="py-3.5 px-4 text-right">
-                    <div className="flex items-center justify-end space-x-1.5">
-                      <button
-                        onClick={() => setSelectedUserModal({ ...u, editMode: false })}
-                        title="View Account"
-                        className="px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 transition-all text-[11px] flex items-center space-x-1"
-                      >
-                        <Eye className="w-3.5 h-3.5 text-slate-400" />
-                        <span>View</span>
-                      </button>
-
-                      <button
-                        onClick={() => setSelectedUserModal({ ...u, editMode: true })}
-                        title="Edit Details"
-                        className="px-2.5 py-1.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 transition-all text-[11px] flex items-center space-x-1"
-                      >
-                        <Edit3 className="w-3.5 h-3.5" />
-                        <span>Edit</span>
-                      </button>
-
-                      <button
-                        onClick={() => {
-                          setResetPasswordInput('');
-                          setIsResetModalOpen(u);
-                        }}
-                        title="Reset Temp Password"
-                        className="px-2.5 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 transition-all text-[11px] flex items-center space-x-1"
-                      >
-                        <Key className="w-3.5 h-3.5" />
-                        <span>Password</span>
-                      </button>
-
-                      {u.role !== 'admin' && (
-                        <>
-                          <button
-                            onClick={() => handleToggleDeactivate(u)}
-                            title={u.status === 'Active' ? 'Deactivate User' : 'Activate User'}
-                            className={`px-2.5 py-1.5 rounded-lg border transition-all text-[11px] flex items-center space-x-1 ${
-                              u.status === 'Active'
-                                ? 'bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border-rose-500/30'
-                                : 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
-                            }`}
-                          >
-                            {u.status === 'Active' ? <UserX className="w-3.5 h-3.5" /> : <UserCheck className="w-3.5 h-3.5" />}
-                          </button>
-
-                          <button
-                            onClick={() => handleDeleteUser(u)}
-                            title="Delete User"
-                            className="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 transition-all"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </td>
+        {users.loading ? <Loading label="Loading accounts…" /> : users.error ? <ErrorState message={users.error} onRetry={fetchUsers} /> : filtered.length === 0 ? (
+          <EmptyState icon={Users} title={users.list.length ? 'No matching accounts' : `No ${noun.toLowerCase()} accounts yet`}
+            message={users.list.length ? 'Try a different search or filter.' : `Use "Add ${noun}" to create the first account.`} />
+        ) : (
+          <div className="table-wrap">
+            <table className="table" style={{ minWidth: 820 }}>
+              <thead>
+                <tr>
+                  <th>User</th>
+                  {!fixedRole && <th>Role</th>}
+                  {isPatientView && <th>Patient ID</th>}
+                  {isPatientView && <th>Predictions</th>}
+                  {fixedRole === 'doctor' && <th>Doctor ID</th>}
+                  {isPatientView && <th>Treating doctor</th>}
+                  {fixedRole !== 'patient' && <th>Specialty / Dept.</th>}
+                  <th>Status</th>
+                  <th>Created</th>
+                  <th className="right">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+              </thead>
+              <tbody>
+                {filtered.map((u) => {
+                  const rec = patientsByUserId?.[u.id];
+                  return (
+                    <tr key={u.id}>
+                      <td>
+                        <div className="row" style={{ gap: 10 }}>
+                          <span className="avatar" style={{ width: 34, height: 34, fontSize: 12, borderRadius: 9 }}>{initials(u.name)}</span>
+                          <div style={{ minWidth: 0 }}>
+                            <div className="strong">{u.name}</div>
+                            <div className="xs muted">{u.email}</div>
+                          </div>
+                        </div>
+                      </td>
+                      {!fixedRole && <td><RoleBadge role={u.role} /></td>}
+                      {isPatientView && <td className="mono">{rec?.patient_id || '—'}</td>}
+                      {isPatientView && <td>{rec ? (predictionCountByPatient?.[rec.id] || 0) : '—'}</td>}
+                      {fixedRole === 'doctor' && <td className="mono">{u.doctor_id || '—'}</td>}
+                      {isPatientView && <td>{doctorLabel(u.treating_doctor_id)}</td>}
+                      {fixedRole !== 'patient' && <td>{u.specialty_or_department || '—'}</td>}
+                      <td>
+                        <StatusBadge status={u.status} />
+                        {u.is_temporary_password && u.role !== 'admin' && <div className="xs muted" style={{ marginTop: 4 }}>Temporary password</div>}
+                      </td>
+                      <td>{formatDate(u.created_at)}</td>
+                      <td>
+                        {u.role === 'admin' ? (
+                          <span className="xs muted" style={{ display: 'block', textAlign: 'right' }}>Protected account</span>
+                        ) : (
+                          <div className="actions">
+                            <button className="icon-btn" title="Edit details" aria-label={`Edit ${u.name}`} onClick={() => { setFormError(''); setEditUser({ ...u }); }}><Pencil /></button>
+                            <button className="icon-btn" title="Reset password" aria-label={`Reset password for ${u.name}`} onClick={() => { setFormError(''); setResetPassword(''); setResetUser(u); }}><KeyRound /></button>
+                            <button className="icon-btn" title={u.status === 'Active' ? 'Deactivate' : 'Activate'} aria-label={u.status === 'Active' ? `Deactivate ${u.name}` : `Activate ${u.name}`} onClick={() => handleToggle(u)}>
+                              {u.status === 'Active' ? <UserX /> : <UserCheck />}
+                            </button>
+                            <button className="icon-btn" title="Delete" aria-label={`Delete ${u.name}`} style={{ color: '#dc2626' }} onClick={() => setDeleteUser(u)}><Trash2 /></button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
 
-      {/* CREATE USER MODAL */}
-      {isCreateModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="relative w-full max-w-lg bg-slate-950 border border-slate-800 rounded-3xl p-6 space-y-5 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-              <div>
-                <h3 className="text-lg font-bold text-white">Provision Account (Doctor / Patient)</h3>
-                <p className="text-xs text-slate-400">Admin-initiated account creation & initial credentials setup</p>
-              </div>
-              <button
-                onClick={() => setIsCreateModalOpen(false)}
-                className="p-1 rounded-lg bg-slate-900 text-slate-400 hover:text-white"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {formError && (
-              <div className="bg-rose-500/10 border border-rose-500/30 p-3 rounded-xl text-rose-400 text-xs flex items-center space-x-2">
-                <AlertCircle className="w-4 h-4 shrink-0" />
-                <span>{formError}</span>
-              </div>
+      {/* Create */}
+      {createOpen && (
+        <Modal
+          title={`Add ${noun === 'Account' ? 'Doctor or Patient' : noun}`}
+          onClose={() => setCreateOpen(false)}
+          footer={(
+            <>
+              <button className="btn btn-ghost" onClick={() => setCreateOpen(false)}>Cancel</button>
+              <button className="btn btn-primary" form="create-user-form" disabled={busy}>{busy ? <Loader2 className="spin" /> : <PlusCircle />} Create account</button>
+            </>
+          )}
+        >
+          <form id="create-user-form" className="stack" onSubmit={handleCreateSubmit}>
+            {formError && <Alert type="error">{formError}</Alert>}
+            {!fixedRole && (
+              <Field label="Account role" required>
+                <div className="segmented">
+                  {['doctor', 'patient'].map((r) => (
+                    <button type="button" key={r} className={createForm.role === r ? 'active' : ''} onClick={() => setCreateForm({ ...createForm, role: r })}>
+                      {r === 'doctor' ? 'Doctor' : 'Patient'}
+                    </button>
+                  ))}
+                </div>
+              </Field>
             )}
-
-            <form onSubmit={handleCreateSubmit} className="space-y-4 text-xs">
-              <div>
-                <label className="block text-slate-300 font-semibold mb-1">Select Account Role</label>
-                <div className="grid grid-cols-2 gap-2 bg-slate-900 p-1 rounded-xl border border-slate-800">
-                  <button
-                    type="button"
-                    onClick={() => setCreateForm({ ...createForm, role: 'doctor' })}
-                    className={`py-2 rounded-lg font-bold transition-all flex items-center justify-center space-x-2 ${
-                      createForm.role === 'doctor' ? 'bg-teal-500 text-slate-950' : 'text-slate-400'
-                    }`}
-                  >
-                    <Stethoscope className="w-4 h-4" />
-                    <span>Doctor</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setCreateForm({ ...createForm, role: 'patient' })}
-                    className={`py-2 rounded-lg font-bold transition-all flex items-center justify-center space-x-2 ${
-                      createForm.role === 'patient' ? 'bg-sky-500 text-slate-950' : 'text-slate-400'
-                    }`}
-                  >
-                    <PatientIcon className="w-4 h-4" />
-                    <span>Patient</span>
-                  </button>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-300 font-medium mb-1">Full Name *</label>
-                  <input
-                    type="text"
-                    required
-                    value={createForm.name}
-                    onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
-                    placeholder={createForm.role === 'doctor' ? 'Dr. Sarah Lin' : 'Jane Smith'}
-                    className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-slate-200 focus:outline-none focus:border-indigo-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-slate-300 font-medium mb-1">Email Address * (Normalized)</label>
-                  <input
-                    type="email"
-                    required
-                    value={createForm.email}
-                    onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })}
-                    placeholder="user@hospital.org"
-                    className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-slate-200 font-mono focus:outline-none focus:border-indigo-500"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-slate-300 font-medium mb-1">Temporary Initial Password *</label>
-                <input
-                  type="text"
-                  required
-                  value={createForm.password}
-                  onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })}
-                  placeholder="TempPassword123"
-                  className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-slate-200 font-mono focus:outline-none focus:border-indigo-500"
-                />
-              </div>
-
-              {createForm.role === 'doctor' ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-slate-300 font-medium mb-1">Specialty / Department</label>
-                    <input
-                      type="text"
-                      value={createForm.specialty_or_department}
-                      onChange={(e) => setCreateForm({ ...createForm, specialty_or_department: e.target.value })}
-                      placeholder="Nephrology & Renal Medicine"
-                      className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-slate-200"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-slate-300 font-medium mb-1">Phone Number</label>
-                    <input
-                      type="text"
-                      value={createForm.phone}
-                      onChange={(e) => setCreateForm({ ...createForm, phone: e.target.value })}
-                      placeholder="+1 (555) 019-2831"
-                      className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-slate-200"
-                    />
-                  </div>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-slate-300 font-medium mb-1">Gender</label>
-                    <select
-                      value={createForm.gender}
-                      onChange={(e) => setCreateForm({ ...createForm, gender: e.target.value })}
-                      className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-slate-200"
-                    >
-                      <option value="Male">Male</option>
-                      <option value="Female">Female</option>
-                      <option value="Unspecified">Unspecified</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-slate-300 font-medium mb-1">Phone Number</label>
-                    <input
-                      type="text"
-                      value={createForm.phone}
-                      onChange={(e) => setCreateForm({ ...createForm, phone: e.target.value })}
-                      placeholder="+1 (555) 928-1100"
-                      className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-slate-200"
-                    />
-                  </div>
-                </div>
-              )}
-
-              <div className="pt-3 flex justify-end space-x-2">
-                <button
-                  type="button"
-                  onClick={() => setIsCreateModalOpen(false)}
-                  className="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-400 font-bold"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold shadow-lg shadow-indigo-500/20"
-                >
-                  Create {createForm.role.toUpperCase()} Account
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+            <Field label="Full name" required><input className="input" value={createForm.name} onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })} /></Field>
+            <Field label="Email (Gmail)" required><input className="input" type="email" value={createForm.email} onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })} /></Field>
+            <Field label="Temporary password" required hint="The user will be prompted to change it after signing in.">
+              <input className="input" type="text" value={createForm.password} onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })} autoComplete="off" />
+            </Field>
+            {createForm.role === 'doctor' ? (
+              <>
+                <Field label="Doctor ID" hint="Unique hospital / registration ID (optional for admin-created accounts).">
+                  <input className="input" value={createForm.doctor_id} onChange={(e) => setCreateForm({ ...createForm, doctor_id: e.target.value })} placeholder="e.g. DOC-001" />
+                </Field>
+                <Field label="Specialty / Department"><input className="input" value={createForm.specialty_or_department} onChange={(e) => setCreateForm({ ...createForm, specialty_or_department: e.target.value })} placeholder="e.g. Nephrology" /></Field>
+              </>
+            ) : (
+              <>
+              <Field label="Treating doctor">
+                <select className="select" value={createForm.treating_doctor_id} onChange={(e) => setCreateForm({ ...createForm, treating_doctor_id: e.target.value })}>
+                  <option value="">Not assigned</option>
+                  {activeDoctors.map((d) => <option key={d.id} value={d.id}>{d.name}{d.doctor_id ? ` (${d.doctor_id})` : ''}</option>)}
+                </select>
+              </Field>
+              <Field label="Gender">
+                <select className="select" value={createForm.gender} onChange={(e) => setCreateForm({ ...createForm, gender: e.target.value })}>
+                  <option value="Unspecified">Unspecified</option>
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                  <option value="Other">Other</option>
+                </select>
+              </Field>
+              </>
+            )}
+            <Field label="Phone"><input className="input" value={createForm.phone} onChange={(e) => setCreateForm({ ...createForm, phone: e.target.value })} /></Field>
+          </form>
+        </Modal>
       )}
 
-      {/* RESET PASSWORD MODAL */}
-      {isResetModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="relative w-full max-w-sm bg-slate-950 border border-slate-800 rounded-3xl p-6 space-y-4">
-            <h3 className="text-base font-bold text-white flex items-center space-x-2">
-              <Key className="w-5 h-5 text-amber-400" />
-              <span>Reset Password: {isResetModalOpen.name}</span>
-            </h3>
-            <form onSubmit={handleResetPasswordSubmit} className="space-y-4 text-xs">
-              <div>
-                <label className="block text-slate-300 font-medium mb-1">New Temporary Password</label>
-                <input
-                  type="text"
-                  required
-                  value={resetPasswordInput}
-                  onChange={(e) => setResetPasswordInput(e.target.value)}
-                  placeholder="NewTempPass123"
-                  className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-slate-200 font-mono"
-                />
-              </div>
-              <div className="flex justify-end space-x-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsResetModalOpen(null)}
-                  className="px-3.5 py-2 rounded-xl bg-slate-900 text-slate-400 font-bold"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold shadow-lg shadow-amber-500/20"
-                >
-                  Save Temporary Password
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+      {/* Edit */}
+      {editUser && (
+        <Modal
+          title={`Edit ${editUser.name}`}
+          onClose={() => setEditUser(null)}
+          footer={(
+            <>
+              <button className="btn btn-ghost" onClick={() => setEditUser(null)}>Cancel</button>
+              <button className="btn btn-primary" form="edit-user-form" disabled={busy}>{busy ? <Loader2 className="spin" /> : <Pencil />} Save changes</button>
+            </>
+          )}
+        >
+          <form id="edit-user-form" className="stack" onSubmit={handleUpdate}>
+            {formError && <Alert type="error">{formError}</Alert>}
+            <Field label="Full name"><input className="input" value={editUser.name || ''} onChange={(e) => setEditUser({ ...editUser, name: e.target.value })} /></Field>
+            <Field label="Email"><input className="input" type="email" value={editUser.email || ''} onChange={(e) => setEditUser({ ...editUser, email: e.target.value })} /></Field>
+            {editUser.role === 'doctor' && (
+              <Field label="Doctor ID"><input className="input" value={editUser.doctor_id || ''} onChange={(e) => setEditUser({ ...editUser, doctor_id: e.target.value })} placeholder="e.g. DOC-001" /></Field>
+            )}
+            {editUser.role === 'patient' && (
+              <Field label="Treating doctor">
+                <select className="select" value={editUser.treating_doctor_id || ''} onChange={(e) => setEditUser({ ...editUser, treating_doctor_id: e.target.value })}>
+                  <option value="">Not assigned</option>
+                  {editUser.treating_doctor_id && !activeDoctors.some((d) => Number(d.id) === Number(editUser.treating_doctor_id)) && (
+                    <option value={editUser.treating_doctor_id}>{doctorLabel(editUser.treating_doctor_id)}</option>
+                  )}
+                  {activeDoctors.map((d) => <option key={d.id} value={d.id}>{d.name}{d.doctor_id ? ` (${d.doctor_id})` : ''}</option>)}
+                </select>
+              </Field>
+            )}
+            <Field label="Specialty / Department"><input className="input" value={editUser.specialty_or_department || ''} onChange={(e) => setEditUser({ ...editUser, specialty_or_department: e.target.value })} /></Field>
+            <Field label="Phone"><input className="input" value={editUser.phone || ''} onChange={(e) => setEditUser({ ...editUser, phone: e.target.value })} /></Field>
+            <Field label="Status">
+              <select className="select" value={editUser.status} onChange={(e) => setEditUser({ ...editUser, status: e.target.value })}>
+                <option value="Active">Active</option>
+                <option value="Inactive">Inactive</option>
+              </select>
+            </Field>
+          </form>
+        </Modal>
       )}
 
-      {/* EDIT / VIEW MODAL */}
-      {selectedUserModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="relative w-full max-w-md bg-slate-950 border border-slate-800 rounded-3xl p-6 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-              <h3 className="text-base font-bold text-white">
-                {selectedUserModal.editMode ? 'Edit Account Details' : 'Account Overview'}
-              </h3>
-              <button
-                onClick={() => setSelectedUserModal(null)}
-                className="p-1 rounded-lg bg-slate-900 text-slate-400 hover:text-white"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleUpdateSubmit} className="space-y-3 text-xs">
-              <div>
-                <label className="text-slate-400 block mb-1">Full Name</label>
-                <input
-                  type="text"
-                  disabled={!selectedUserModal.editMode}
-                  value={selectedUserModal.name || ''}
-                  onChange={(e) => setSelectedUserModal({ ...selectedUserModal, name: e.target.value })}
-                  className="w-full px-3.5 py-2 bg-slate-900 border border-slate-800 rounded-xl text-white font-bold disabled:opacity-80"
-                />
-              </div>
-
-              <div>
-                <label className="text-slate-400 block mb-1">Email Address</label>
-                <input
-                  type="email"
-                  disabled={!selectedUserModal.editMode}
-                  value={selectedUserModal.email || ''}
-                  onChange={(e) => setSelectedUserModal({ ...selectedUserModal, email: e.target.value })}
-                  className="w-full px-3.5 py-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-200 font-mono disabled:opacity-80"
-                />
-              </div>
-
-              <div>
-                <label className="text-slate-400 block mb-1">Role</label>
-                <span className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-indigo-400 font-bold capitalize block">
-                  {selectedUserModal.role}
-                </span>
-              </div>
-
-              <div>
-                <label className="text-slate-400 block mb-1">Specialty / Department</label>
-                <input
-                  type="text"
-                  disabled={!selectedUserModal.editMode}
-                  value={selectedUserModal.specialty_or_department || selectedUserModal.department || ''}
-                  onChange={(e) => setSelectedUserModal({ ...selectedUserModal, specialty_or_department: e.target.value })}
-                  className="w-full px-3.5 py-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-200 disabled:opacity-80"
-                />
-              </div>
-
-              <div className="pt-2 flex justify-end space-x-2">
-                <button
-                  type="button"
-                  onClick={() => setSelectedUserModal(null)}
-                  className="px-4 py-2 rounded-xl bg-slate-900 text-slate-400 font-bold"
-                >
-                  Close
-                </button>
-                {selectedUserModal.editMode && (
-                  <button
-                    type="submit"
-                    className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold shadow-lg shadow-indigo-500/20"
-                  >
-                    Save Changes
-                  </button>
-                )}
-              </div>
-            </form>
-          </div>
-        </div>
+      {/* Reset password */}
+      {resetUser && (
+        <Modal
+          title="Reset password"
+          onClose={() => setResetUser(null)}
+          footer={(
+            <>
+              <button className="btn btn-ghost" onClick={() => setResetUser(null)}>Cancel</button>
+              <button className="btn btn-primary" form="reset-form" disabled={busy}>{busy ? <Loader2 className="spin" /> : <KeyRound />} Set temporary password</button>
+            </>
+          )}
+        >
+          <form id="reset-form" className="stack" onSubmit={handleReset}>
+            <p className="muted">Set a new temporary password for <b>{resetUser.name}</b> ({resetUser.email}). They will be asked to change it after signing in.</p>
+            {formError && <Alert type="error">{formError}</Alert>}
+            <Field label="New temporary password" required><input className="input" type="text" value={resetPassword} onChange={(e) => setResetPassword(e.target.value)} autoComplete="off" /></Field>
+          </form>
+        </Modal>
       )}
 
+      {/* Delete confirmation */}
+      {deleteUser && (
+        <Modal
+          title="Delete account?"
+          onClose={() => setDeleteUser(null)}
+          footer={(
+            <>
+              <button className="btn btn-ghost" onClick={() => setDeleteUser(null)}>Cancel</button>
+              <button className="btn btn-danger" onClick={handleDelete} disabled={busy}>{busy ? <Loader2 className="spin" /> : <Trash2 />} Delete permanently</button>
+            </>
+          )}
+        >
+          <Alert type="warn">
+            This permanently deletes <b>{deleteUser.name}</b> ({deleteUser.email})
+            {deleteUser.role === 'patient' ? ' together with their patient record, predictions and reports.' : '.'} This cannot be undone.
+          </Alert>
+        </Modal>
+      )}
+
+      <Toast message={toast} onDone={() => setToast('')} />
     </div>
   );
 }

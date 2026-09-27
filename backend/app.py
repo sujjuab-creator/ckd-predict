@@ -7,6 +7,7 @@ from sqlalchemy.exc import OperationalError, DatabaseError
 from config import Config
 from extensions import db
 from models.user import User
+import models  # noqa: F401  (registers all tables, incl. email_otps & password_reset_tokens)
 from utils.security import hash_password
 
 from routes.auth import auth_bp
@@ -35,32 +36,121 @@ def auto_migrate_user_schema(app):
         except Exception as err:
             print(f"[INFO] Auto-migration check: {err}")
 
-def init_system_admin(app):
-    """Ensure exactly one System Administrator account exists on initialization."""
+    auto_migrate_auth_schema(app)
+
+
+def auto_migrate_auth_schema(app):
+    """
+    Additive, idempotent migration for registration / care-team fields.
+    - users.doctor_code  (unique Doctor ID), users.updated_at
+    - patients.doctor_id (treating doctor -> users.id, ON DELETE SET NULL on MySQL)
+    New tables (email_otps, password_reset_tokens) are created by db.create_all().
+    Never drops or rewrites existing data. Each step runs independently.
+    """
     with app.app_context():
         try:
-            admin_user = User.query.filter_by(role='admin').first()
-            if not admin_user:
-                admin_email = (os.getenv('ADMIN_EMAIL') or 'admin@ckdpredict.com').strip().lower()
-                admin_password = os.getenv('ADMIN_PASSWORD') or 'admin123'
-                admin_name = os.getenv('ADMIN_NAME') or 'System Administrator'
-
-                existing_email = User.query.filter(User.email.ilike(admin_email)).first()
-                if not existing_email:
-                    admin_user = User(
-                        name=admin_name,
-                        email=admin_email,
-                        password_hash=hash_password(admin_password),
-                        role='admin',
-                        status='Active',
-                        is_temporary_password=False,
-                        specialty_or_department='Chief Medical Data Officer'
-                    )
-                    db.session.add(admin_user)
-                    db.session.commit()
-                    print(f"[INFO] Single System Administrator initialized ({admin_email}).")
+            inspector = db.inspect(db.engine)
+            tables = inspector.get_table_names()
         except Exception as err:
-            print(f"[WARNING] System Admin initialization skipped or encountered error: {err}")
+            print(f"[INFO] Auth schema migration skipped: {err.__class__.__name__}")
+            return
+
+        dialect = db.engine.dialect.name
+        steps = []
+        if 'users' in tables:
+            user_cols = [c['name'] for c in inspector.get_columns('users')]
+            user_indexes = [i['name'] for i in inspector.get_indexes('users')]
+            if 'doctor_code' not in user_cols:
+                steps.append("ALTER TABLE users ADD COLUMN doctor_code VARCHAR(50) NULL")
+            if 'ix_users_doctor_code' not in user_indexes:
+                steps.append("CREATE UNIQUE INDEX ix_users_doctor_code ON users (doctor_code)")
+            if 'updated_at' not in user_cols:
+                steps.append("ALTER TABLE users ADD COLUMN updated_at DATETIME NULL")
+        if 'patients' in tables:
+            patient_cols = [c['name'] for c in inspector.get_columns('patients')]
+            if 'doctor_id' not in patient_cols:
+                steps.append("ALTER TABLE patients ADD COLUMN doctor_id INTEGER NULL")
+                steps.append("CREATE INDEX ix_patients_doctor_id ON patients (doctor_id)")
+                if dialect == 'mysql':
+                    steps.append(
+                        "ALTER TABLE patients ADD CONSTRAINT fk_patients_doctor_id "
+                        "FOREIGN KEY (doctor_id) REFERENCES users (id) ON DELETE SET NULL"
+                    )
+
+        for sql in steps:
+            try:
+                with db.engine.begin() as conn:
+                    conn.execute(db.text(sql))
+                print(f"[INFO] Schema migration applied: {sql.split(' ADD ')[0] if ' ADD ' in sql else sql[:40]}")
+            except Exception as err:
+                print(f"[INFO] Schema migration step skipped ({err.__class__.__name__}): {sql[:60]}")
+
+
+class AdminConfigurationError(RuntimeError):
+    """Raised when the initial System Administrator cannot be created safely."""
+
+
+MIN_ADMIN_PASSWORD_LENGTH = 8
+
+
+def init_system_admin(app):
+    """
+    Ensure exactly one System Administrator account exists on initialization.
+
+    - If an admin already exists it is left untouched (its password is never reset here).
+    - A new admin is created only from ADMIN_EMAIL / ADMIN_PASSWORD / ADMIN_NAME.
+      There is NO default password.
+    - If ADMIN_PASSWORD is missing/empty/too short:
+        * production: raise AdminConfigurationError (startup fails with a clear message)
+        * development/testing: no admin is created and a warning is printed
+    The password value is never printed or logged.
+    """
+    is_production = (os.getenv('FLASK_ENV') or '').strip().lower() == 'production'
+
+    with app.app_context():
+        try:
+            if User.query.filter_by(role='admin').first():
+                return  # Preserve the existing single admin account as-is
+
+            admin_email = (os.getenv('ADMIN_EMAIL') or 'admin@ckdpredict.com').strip().lower()
+            admin_password = os.getenv('ADMIN_PASSWORD') or ''
+            admin_name = (os.getenv('ADMIN_NAME') or 'System Administrator').strip() or 'System Administrator'
+
+            if not admin_password.strip() or len(admin_password) < MIN_ADMIN_PASSWORD_LENGTH:
+                message = (
+                    '[CONFIGURATION ERROR] No System Administrator account exists and ADMIN_PASSWORD is not set '
+                    f'(or is shorter than {MIN_ADMIN_PASSWORD_LENGTH} characters). Set ADMIN_EMAIL and a strong '
+                    'ADMIN_PASSWORD environment variable to create the initial Admin account.'
+                )
+                if is_production:
+                    raise AdminConfigurationError(message)
+                print(message.replace('[CONFIGURATION ERROR]', '[WARNING]') + ' Admin account was NOT created.')
+                return
+
+            if User.query.filter(User.email.ilike(admin_email)).first():
+                message = (
+                    f'[CONFIGURATION ERROR] ADMIN_EMAIL ({admin_email}) is already used by a non-admin account; '
+                    'the System Administrator was not created. Choose a different ADMIN_EMAIL.'
+                )
+                if is_production:
+                    raise AdminConfigurationError(message)
+                print(message.replace('[CONFIGURATION ERROR]', '[WARNING]'))
+                return
+
+            db.session.add(User(
+                name=admin_name,
+                email=admin_email,
+                password_hash=hash_password(admin_password),
+                role='admin',
+                status='Active',
+                is_temporary_password=False,
+                specialty_or_department='Chief Medical Data Officer'
+            ))
+            db.session.commit()
+            print(f"[INFO] Single System Administrator initialized ({admin_email}).")
+        except (OperationalError, DatabaseError) as err:
+            db.session.rollback()
+            print(f"[WARNING] System Admin initialization skipped (database error: {err.__class__.__name__}).")
 
 def create_app():
     app = Flask(__name__)

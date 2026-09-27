@@ -1,417 +1,384 @@
 import React, { useState } from 'react';
-import { 
-  Activity, ArrowRight, CheckCircle2, BarChart3, 
-  Sparkles, Stethoscope, Users, Sliders, ChevronRight
+import {
+  ArrowRight, BookOpen, Brain, ShieldCheck, Stethoscope, Activity, Droplets, HeartPulse,
+  Salad, GlassWater, CalendarCheck, ClipboardList, Gauge, ChartBar, FileText, History,
+  Lock, Users, UserRound, Cpu, Sparkles, ChevronDown, Phone, TriangleAlert,
+  Microscope, Info, Pill, CircleAlert, LogIn,
 } from 'lucide-react';
-import { calculateEGFR, getCKDStage } from '../utils/ckdPredictor';
+import KidneyIllustration from './brand/KidneyIllustration';
+import { MEDICAL_DISCLAIMER } from './ui/UI';
+import { scrollToSection } from './Navbar';
+
+const ABOUT_CARDS = [
+  {
+    icon: Microscope, tone: 'tone-green', title: 'Common causes',
+    text: 'CKD usually develops from long-term conditions that strain the kidneys over time.',
+    list: ['Diabetes (type 1 or type 2)', 'High blood pressure', 'Glomerulonephritis (inflammation of kidney filters)', 'Polycystic kidney disease and other inherited conditions', 'Repeated urinary tract obstruction or infections'],
+  },
+  {
+    icon: CircleAlert, tone: 'tone-amber', title: 'Risk factors',
+    text: 'Some people are more likely to develop CKD and may benefit from regular testing.',
+    list: ['Diabetes or high blood pressure', 'Heart or blood vessel disease', 'Family history of kidney disease', 'Older age, obesity or smoking', 'A previous acute kidney injury'],
+  },
+  {
+    icon: HeartPulse, tone: 'tone-red', title: 'Common symptoms',
+    text: 'Symptoms often appear only in later stages and can be caused by other conditions too.',
+    list: ['Tiredness and low energy', 'Swelling in ankles, feet or hands', 'Changes in how often you urinate, or foamy urine', 'Itchy skin and muscle cramps', 'Nausea, poor appetite or trouble sleeping'],
+  },
+];
+
+const STAGES = [
+  { stage: 'Stage 1', name: 'Normal or high', gfr: '≥ 90', color: '#10b981', text: 'Kidney function is normal, but there are other signs of kidney damage such as protein in the urine.' },
+  { stage: 'Stage 2', name: 'Mildly decreased', gfr: '60 – 89', color: '#84cc16', text: 'Slight loss of function, usually alongside other markers of kidney damage.' },
+  { stage: 'Stage 3a', name: 'Mild to moderate', gfr: '45 – 59', color: '#eab308', text: 'Moderate loss of function. Some people begin to notice symptoms.' },
+  { stage: 'Stage 3b', name: 'Moderate to severe', gfr: '30 – 44', color: '#f59e0b', text: 'Function is noticeably reduced; complications become more likely.' },
+  { stage: 'Stage 4', name: 'Severely decreased', gfr: '15 – 29', color: '#f97316', text: 'Severe loss of function. Specialist care and planning are usually needed.' },
+  { stage: 'Stage 5', name: 'Kidney failure', gfr: '< 15', color: '#dc2626', text: 'Kidneys are close to or have stopped working; dialysis or transplant may be considered.' },
+];
+
+const HABITS = [
+  { icon: Salad, tone: 'tone-green', title: 'Healthy lifestyle', text: 'A balanced diet lower in salt and processed foods, regular physical activity, a healthy weight and not smoking all support kidney health.' },
+  { icon: HeartPulse, tone: 'tone-red', title: 'Blood pressure management', text: 'High blood pressure is a leading cause of CKD. Regular checks and following your treatment plan help protect the kidneys.' },
+  { icon: Droplets, tone: 'tone-blue', title: 'Diabetes management', text: 'Keeping blood sugar within the range agreed with your doctor reduces the strain diabetes can place on the kidneys.' },
+  { icon: GlassWater, tone: 'tone-blue', title: 'Hydration', text: 'Drinking enough fluid supports normal kidney function. People with kidney disease may need specific fluid advice from their doctor.' },
+  { icon: CalendarCheck, tone: 'tone-navy', title: 'Regular health checks', text: 'Simple blood (creatinine / eGFR) and urine (albumin) tests can detect kidney problems early, especially if you are at higher risk.' },
+  { icon: Pill, tone: 'tone-amber', title: 'Follow medical advice', text: 'Take medicines as prescribed and ask before using over-the-counter painkillers such as NSAIDs regularly, as they can affect the kidneys.' },
+];
+
+const FEATURES = [
+  { icon: Brain, tone: 'tone-green', title: 'AI-Assisted Prediction', text: 'A trained machine-learning model estimates CKD risk from the health information you supply and returns a risk label with a probability.' },
+  { icon: Sparkles, tone: 'tone-blue', title: 'Explainable Results', text: 'SHAP explanations show which factors pushed an individual prediction towards higher or lower risk.' },
+  { icon: History, tone: 'tone-navy', title: 'Prediction History', text: 'Every prediction is stored securely so patients and doctors can review previous results over time.' },
+  { icon: FileText, tone: 'tone-green', title: 'Medical Reports', text: 'Generate downloadable PDF reports for saved predictions, including the disclaimer and key inputs.' },
+  { icon: ChartBar, tone: 'tone-blue', title: 'Analytics', text: 'Dashboards summarise prediction activity and compare the performance of the evaluated models.' },
+  { icon: Stethoscope, tone: 'tone-navy', title: 'Doctor Review', text: 'Doctors can review patient predictions, explanations and reports to support their clinical assessment.' },
+  { icon: Lock, tone: 'tone-green', title: 'Secure Authentication', text: 'Token-based sign-in with hashed passwords. Prediction tools are available only after signing in.' },
+  { icon: ShieldCheck, tone: 'tone-blue', title: 'Role-Based Access', text: 'Separate Patient, Doctor and Admin dashboards, each limited to the features that role is permitted to use.' },
+];
+
+const STEPS = [
+  { icon: LogIn, title: 'Create / Login to account', text: 'Sign in with your Patient or Doctor account.' },
+  { icon: ClipboardList, title: 'Enter health information', text: 'Provide the required clinical and lifestyle values.' },
+  { icon: Cpu, title: 'AI/ML model analyses data', text: 'The trained model processes the supplied information.' },
+  { icon: Gauge, title: 'Risk prediction generated', text: 'You receive a CKD risk label, probability and explanation.' },
+  { icon: Stethoscope, title: 'Review by user / doctor', text: 'Results can be reviewed by the appropriate user or doctor.' },
+];
+
+const FAQS = [
+  { q: 'Is CKD PREDICT a medical diagnosis?', a: 'No. CKD PREDICT provides an AI-assisted CKD risk prediction based on the data supplied. It is not a diagnosis and does not replace a doctor. Any result should be reviewed by a qualified healthcare professional.' },
+  { q: 'Who can use the platform?', a: 'There are three account types: Patients, who can run predictions and view their own history and reports; Doctors, who can review patient predictions, explanations and reports; and a single Administrator, who manages accounts and system analytics.' },
+  { q: 'How do I get an account?', a: 'Accounts are currently created by the hospital administrator. Email-verified self sign-up for patients and doctors is being prepared and will become available once email verification is enabled on the server.' },
+  { q: 'What information will I need?', a: 'Recent laboratory results are needed, such as serum creatinine, BUN, GFR, urine protein and albumin-to-creatinine ratio, electrolytes, cholesterol, blood pressure, fasting blood sugar and HbA1c, along with some lifestyle, medication and medical history details.' },
+  { q: 'What does the explanation (SHAP) show?', a: 'SHAP values show how much each input pushed the model towards a higher or lower predicted risk for that specific prediction. They explain the model’s behaviour — not the medical cause of a condition.' },
+  { q: 'How reliable are the predictions?', a: 'The model was evaluated on held-out test data and its metrics are available to administrators. Like every model it can be wrong, especially for values outside the data it was trained on, which is why results must be reviewed by a healthcare professional.' },
+  { q: 'Is my information protected?', a: 'Prediction tools are only available after signing in, and each role can only access the dashboards and actions it is permitted to use.' },
+];
+
+function SectionHead({ eyebrow, title, text, center = false }) {
+  return (
+    <div className={`section-head ${center ? 'center' : ''}`}>
+      <span className="eyebrow">{eyebrow}</span>
+      <h2>{title}</h2>
+      {text && <p>{text}</p>}
+    </div>
+  );
+}
+
+function FaqItem({ item, open, onToggle, idx }) {
+  return (
+    <div className={`faq-item ${open ? 'open' : ''}`}>
+      <button className="faq-q" onClick={onToggle} aria-expanded={open} aria-controls={`faq-${idx}`}>
+        <span>{item.q}</span>
+        <ChevronDown />
+      </button>
+      {open && <div className="faq-a" id={`faq-${idx}`}>{item.a}</div>}
+    </div>
+  );
+}
 
 export default function Home({ onNavigate }) {
-  // Interactive Risk Calculator preview state
-  const [quickAge, setQuickAge] = useState(54);
-  const [quickCreatinine, setQuickCreatinine] = useState(1.8);
-  const [quickHemo, setQuickHemo] = useState(11.5);
-  const [quickBp, setQuickBp] = useState(135);
-
-  const quickEgfr = calculateEGFR(quickCreatinine, quickAge, 'Male');
-  const quickStage = getCKDStage(quickEgfr);
-  const quickProb = Math.min(Math.max(Math.round(((quickCreatinine - 0.9) * 45) + ((14 - quickHemo) * 5)), 5), 98);
+  const [openFaq, setOpenFaq] = useState(0);
+  const toLogin = () => onNavigate('/login');
 
   return (
-    <div className="space-y-20 pb-16">
-      
-      {/* Hero Section */}
-      <section className="relative pt-12 lg:pt-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-        
-        {/* Glowing Background Orbs */}
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[350px] bg-gradient-to-r from-sky-500/20 via-indigo-500/20 to-teal-500/20 blur-[120px] -z-10 pointer-events-none rounded-full"></div>
-
-        <div className="text-center space-y-6 max-w-4xl mx-auto">
-          
-          <div className="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-sky-500/10 border border-sky-500/30 text-sky-400 text-xs font-semibold uppercase tracking-wider animate-pulse-subtle">
-            <Sparkles className="w-4 h-4 text-sky-400" />
-            <span>Chronic Kidney Disease Prediction System</span>
-          </div>
-
-          <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold text-white tracking-tight leading-tight">
-            Chronic Kidney Disease Prediction <span className="gradient-text">Using Machine Learning</span>
-          </h1>
-
-          <p className="text-lg sm:text-xl text-slate-300 max-w-3xl mx-auto leading-relaxed">
-            An AI-assisted platform for analyzing clinical patient data and supporting CKD prediction.
-          </p>
-
-          <div className="flex flex-wrap items-center justify-center gap-4 pt-4">
-            <button
-              onClick={() => onNavigate('/assessment')}
-              className="px-8 py-4 rounded-2xl bg-gradient-to-r from-sky-500 via-indigo-600 to-teal-500 hover:from-sky-400 hover:to-teal-400 text-white font-bold text-base shadow-xl shadow-sky-500/25 transition-all transform hover:-translate-y-0.5 flex items-center space-x-2"
-            >
-              <Activity className="w-5 h-5 text-white" />
-              <span>Start CKD Prediction</span>
-              <ArrowRight className="w-5 h-5" />
-            </button>
-
-            <button
-              onClick={() => onNavigate('/login')}
-              className="px-8 py-4 rounded-2xl glass-card hover:bg-slate-800/80 text-slate-200 border border-slate-700 font-semibold text-base transition-all flex items-center space-x-2"
-            >
-              <Stethoscope className="w-5 h-5 text-teal-400" />
-              <span>Sign In to System</span>
-            </button>
-          </div>
-
-        </div>
-      </section>
-
-      {/* Quick Interactive Risk Simulator Preview */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="glass-panel rounded-3xl p-6 sm:p-10 border border-sky-500/20 glow-cyan relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-sky-500/10 rounded-full blur-3xl pointer-events-none"></div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-            
-            <div className="lg:col-span-6 space-y-6">
-              <div className="inline-flex items-center space-x-2 text-sky-400 text-xs font-semibold uppercase tracking-wider">
-                <Sliders className="w-4 h-4" />
-                <span>Interactive Clinical Preview</span>
-              </div>
-
-              <h2 className="text-2xl sm:text-3xl font-bold text-white">
-                Patient Data Analysis & Risk Estimation
-              </h2>
-              <p className="text-sm text-slate-300 leading-relaxed">
-                Adjust clinical parameters below to see how key biomarkers influence risk prediction modeling.
-              </p>
-
-              <div className="space-y-4 pt-2">
-                
-                {/* Age Slider */}
-                <div>
-                  <div className="flex justify-between text-xs font-medium text-slate-300 mb-1">
-                    <span>Patient Age</span>
-                    <span className="font-mono text-sky-400">{quickAge} years</span>
-                  </div>
-                  <input 
-                    type="range" min="18" max="90" value={quickAge} 
-                    onChange={(e) => setQuickAge(parseInt(e.target.value))}
-                    className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-sky-500"
-                  />
-                </div>
-
-                {/* Serum Creatinine Slider */}
-                <div>
-                  <div className="flex justify-between text-xs font-medium text-slate-300 mb-1">
-                    <span>Serum Creatinine (mg/dL)</span>
-                    <span className="font-mono text-sky-400">{quickCreatinine} mg/dL</span>
-                  </div>
-                  <input 
-                    type="range" min="0.5" max="8.0" step="0.1" value={quickCreatinine} 
-                    onChange={(e) => setQuickCreatinine(parseFloat(e.target.value))}
-                    className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-sky-500"
-                  />
-                </div>
-
-                {/* Hemoglobin Slider */}
-                <div>
-                  <div className="flex justify-between text-xs font-medium text-slate-300 mb-1">
-                    <span>Hemoglobin (g/dL)</span>
-                    <span className="font-mono text-teal-400">{quickHemo} g/dL</span>
-                  </div>
-                  <input 
-                    type="range" min="6.0" max="18.0" step="0.1" value={quickHemo} 
-                    onChange={(e) => setQuickHemo(parseFloat(e.target.value))}
-                    className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-teal-500"
-                  />
-                </div>
-
-                {/* BP Slider */}
-                <div>
-                  <div className="flex justify-between text-xs font-medium text-slate-300 mb-1">
-                    <span>Systolic Blood Pressure (mmHg)</span>
-                    <span className="font-mono text-indigo-400">{quickBp} mmHg</span>
-                  </div>
-                  <input 
-                    type="range" min="90" max="190" step="1" value={quickBp} 
-                    onChange={(e) => setQuickBp(parseInt(e.target.value))}
-                    className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
-                  />
-                </div>
-
-              </div>
-            </div>
-
-            {/* Calculated Output Card */}
-            <div className="lg:col-span-6 bg-slate-900/90 rounded-2xl p-6 sm:p-8 border border-slate-800 space-y-6">
-              <div className="flex items-center justify-between pb-4 border-b border-slate-800">
-                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Prediction Output</span>
-                <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${quickStage.badgeClass}`}>
-                  {quickStage.stage}
-                </span>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800">
-                  <p className="text-xs text-slate-400">eGFR Index</p>
-                  <p className="text-3xl font-black text-white font-mono mt-1">
-                    {quickEgfr} <span className="text-xs text-slate-500 font-normal">mL/min</span>
-                  </p>
-                  <p className="text-[11px] text-slate-400 mt-1">Calculated Clearance</p>
-                </div>
-
-                <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800">
-                  <p className="text-xs text-slate-400">CKD Probability</p>
-                  <p className={`text-3xl font-black font-mono mt-1 ${quickProb > 50 ? 'text-rose-400' : 'text-emerald-400'}`}>
-                    {quickProb}%
-                  </p>
-                  <p className="text-[11px] text-slate-400 mt-1">{quickProb > 50 ? 'High Risk Indication' : 'Low Risk Indication'}</p>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex justify-between text-xs text-slate-300">
-                  <span>Risk Stratification</span>
-                  <span className="font-semibold text-slate-200">{quickStage.title}</span>
-                </div>
-                <div className="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-gradient-to-r from-emerald-500 via-amber-500 to-rose-500 transition-all duration-300"
-                    style={{ width: `${quickProb}%` }}
-                  ></div>
-                </div>
-              </div>
-
-              <button
-                onClick={() => onNavigate('/assessment')}
-                className="w-full py-3 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-sm transition-all flex items-center justify-center space-x-2"
-              >
-                <span>Start Full CKD Prediction</span>
-                <ChevronRight className="w-4 h-4" />
+    <>
+      {/* ---------------- HERO ---------------- */}
+      <section className="hero" id="home">
+        <div className="container hero-inner">
+          <div>
+            <span className="eyebrow">AI-assisted kidney health insights</span>
+            <h1 style={{ marginTop: 18 }}>
+              Better Insights for
+              <span className="accent">Healthier Kidneys</span>
+            </h1>
+            <p className="hero-lead">
+              CKD PREDICT uses machine learning to provide AI-assisted CKD risk prediction based on supplied health information.
+            </p>
+            <div className="hero-cta">
+              <button className="btn btn-primary btn-lg" onClick={toLogin}>
+                Get Started <ArrowRight />
+              </button>
+              <button className="btn btn-outline btn-lg" onClick={() => scrollToSection('about', '/', onNavigate)}>
+                <BookOpen /> Learn About CKD
               </button>
             </div>
+            <div className="hero-note">
+              <Lock />
+              Risk prediction is available to signed-in patients and doctors only.
+            </div>
+          </div>
 
+          <div className="hero-visual">
+            <KidneyIllustration />
+            <div className="hero-chip chip-a">
+              <span className="ic tone-green"><Activity /></span>
+              <div><b>Kidney function</b><span>eGFR is a key marker of how well kidneys filter blood.</span></div>
+            </div>
+            <div className="hero-chip chip-b">
+              <span className="ic tone-blue"><Sparkles /></span>
+              <div><b>Explainable AI</b><span>See which factors influenced each prediction.</span></div>
+            </div>
+            <div className="hero-chip chip-c">
+              <span className="ic tone-amber"><Info /></span>
+              <div><b>Often silent</b><span>Early CKD may cause no noticeable symptoms.</span></div>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Feature Modules Grid */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
-        <div className="text-center max-w-2xl mx-auto space-y-3">
-          <h2 className="text-3xl font-bold text-white">System Features & Modules</h2>
-          <p className="text-sm text-slate-400">
-            A comprehensive suite for patient data management, prediction history, explainable AI, and medical analytics.
-          </p>
+      <div className="trust-strip">
+        <div className="container trust-grid">
+          {[
+            { icon: Brain, tone: 'tone-green', t: 'AI-Assisted', d: 'Machine-learning risk prediction' },
+            { icon: Sparkles, tone: 'tone-blue', t: 'Explainable', d: 'SHAP factor explanations' },
+            { icon: ShieldCheck, tone: 'tone-navy', t: 'Secure Access', d: 'Role-based dashboards' },
+            { icon: Stethoscope, tone: 'tone-green', t: 'Clinician Review', d: 'Supports, never replaces, doctors' },
+          ].map((x) => (
+            <div className="trust-item" key={x.t}>
+              <span className={`ic ${x.tone}`}><x.icon /></span>
+              <div><h4>{x.t}</h4><p>{x.d}</p></div>
+            </div>
+          ))}
         </div>
+      </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          
-          {/* Patient Module */}
-          <div className="glass-card rounded-2xl p-8 space-y-6 flex flex-col justify-between hover:border-sky-500/40 transition-all">
-            <div className="space-y-4">
-              <div className="w-12 h-12 rounded-xl bg-sky-500/10 border border-sky-500/30 flex items-center justify-center">
-                <Users className="w-6 h-6 text-sky-400" />
-              </div>
-              <h3 className="text-xl font-bold text-white">Patient Portal</h3>
-              <p className="text-xs text-slate-300 leading-relaxed">
-                Access self-service CKD prediction, view prediction history, examine feature contributions, and export medical reports.
-              </p>
-              <ul className="space-y-2 text-xs text-slate-400">
-                <li className="flex items-center space-x-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                  <span>CKD Prediction input form</span>
-                </li>
-                <li className="flex items-center space-x-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                  <span>Prediction History & longitudinal trend</span>
-                </li>
-                <li className="flex items-center space-x-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                  <span>Explainable AI feature breakdown</span>
-                </li>
-              </ul>
-            </div>
-            <button
-              onClick={() => onNavigate('/login')}
-              className="w-full py-3 rounded-xl bg-slate-800 hover:bg-sky-500/20 text-sky-300 border border-sky-500/30 font-semibold text-xs transition-all flex items-center justify-center space-x-2"
-            >
-              <span>Sign In as Patient</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
-          </div>
-
-          {/* Doctor Module */}
-          <div className="glass-card rounded-2xl p-8 space-y-6 flex flex-col justify-between hover:border-teal-500/40 transition-all border-teal-500/20 bg-slate-900/60">
-            <div className="space-y-4">
-              <div className="w-12 h-12 rounded-xl bg-teal-500/10 border border-teal-500/30 flex items-center justify-center">
-                <Stethoscope className="w-6 h-6 text-teal-400" />
-              </div>
-              <h3 className="text-xl font-bold text-white">Doctor Portal</h3>
-              <p className="text-xs text-slate-300 leading-relaxed">
-                Search patient rosters, inspect clinical details, perform CKD prediction assessments, and review medical reports.
-              </p>
-              <ul className="space-y-2 text-xs text-slate-400">
-                <li className="flex items-center space-x-2">
-                  <CheckCircle2 className="w-4 h-4 text-teal-400" />
-                  <span>Patient Data Management & Search</span>
-                </li>
-                <li className="flex items-center space-x-2">
-                  <CheckCircle2 className="w-4 h-4 text-teal-400" />
-                  <span>Clinical Patient Details</span>
-                </li>
-                <li className="flex items-center space-x-2">
-                  <CheckCircle2 className="w-4 h-4 text-teal-400" />
-                  <span>Medical Reports & Notes</span>
-                </li>
-              </ul>
-            </div>
-            <button
-              onClick={() => onNavigate('/login')}
-              className="w-full py-3 rounded-xl bg-teal-500/10 hover:bg-teal-500/20 text-teal-300 border border-teal-500/30 font-semibold text-xs transition-all flex items-center justify-center space-x-2"
-            >
-              <span>Sign In as Doctor</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
-          </div>
-
-          {/* Admin Module */}
-          <div className="glass-card rounded-2xl p-8 space-y-6 flex flex-col justify-between hover:border-indigo-500/40 transition-all">
-            <div className="space-y-4">
-              <div className="w-12 h-12 rounded-xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center">
-                <BarChart3 className="w-6 h-6 text-indigo-400" />
-              </div>
-              <h3 className="text-xl font-bold text-white">Admin Dashboard</h3>
-              <p className="text-xs text-slate-300 leading-relaxed">
-                Manage user accounts, patient registries, doctor rosters, and analyze system-wide analytics.
-              </p>
-              <ul className="space-y-2 text-xs text-slate-400">
-                <li className="flex items-center space-x-2">
-                  <CheckCircle2 className="w-4 h-4 text-indigo-400" />
-                  <span>User & Roster Management</span>
-                </li>
-                <li className="flex items-center space-x-2">
-                  <CheckCircle2 className="w-4 h-4 text-indigo-400" />
-                  <span>Patient & Doctor Directories</span>
-                </li>
-                <li className="flex items-center space-x-2">
-                  <CheckCircle2 className="w-4 h-4 text-indigo-400" />
-                  <span>System Analytics & Visualizations</span>
-                </li>
-              </ul>
-            </div>
-            <button
-              onClick={() => onNavigate('/login')}
-              className="w-full py-3 rounded-xl bg-slate-800 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-semibold text-xs transition-all flex items-center justify-center space-x-2"
-            >
-              <span>Sign In as Admin</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
-          </div>
-
-        </div>
-      </section>
-
-      {/* Feature Section: Explainable AI & Data Analysis */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="glass-panel rounded-3xl p-8 sm:p-12 border border-slate-800 relative overflow-hidden">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
-            
-            <div className="space-y-4">
-              <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 text-xs font-semibold">
-                <BarChart3 className="w-4 h-4" />
-                <span>Explainable AI</span>
-              </div>
-              <h2 className="text-3xl font-bold text-white">
-                Transparent Feature Analysis
+      {/* ---------------- ABOUT CKD ---------------- */}
+      <section className="section" id="about">
+        <div className="container">
+          <div className="about-intro">
+            <div>
+              <span className="eyebrow">About CKD</span>
+              <h2 style={{ fontSize: 'clamp(28px, 3.4vw, 38px)', fontWeight: 800, margin: '12px 0 16px' }}>
+                What is Chronic Kidney Disease?
               </h2>
-              <p className="text-sm text-slate-300 leading-relaxed">
-                The platform highlights key biomarker factors influencing the prediction, providing structured insights for both healthcare professionals and patients.
+              <p className="lead">
+                Chronic Kidney Disease (CKD) is a long-term condition in which the kidneys gradually lose their ability to
+                filter waste products and excess fluid from the blood. It is generally identified when signs of kidney
+                damage or reduced kidney function last for more than three months.
               </p>
-
-              <div className="pt-4">
-                <button
-                  onClick={() => onNavigate('/assessment')}
-                  className="px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition-all flex items-center space-x-2"
-                >
-                  <span>Start Prediction</span>
-                  <ArrowRight className="w-4 h-4" />
-                </button>
-              </div>
+              <p className="lead">
+                Healthy kidneys also help control blood pressure, balance minerals and support red blood cell production,
+                so reduced kidney function can affect the whole body.
+              </p>
             </div>
-
-            {/* Visual Sample Feature Chart */}
-            <div className="bg-slate-950 p-6 rounded-2xl border border-slate-800 space-y-4">
-              <div className="flex items-center justify-between text-xs text-slate-400">
-                <span className="font-semibold text-slate-200">Biomarker Feature Contributions</span>
-                <span>Base Value = 23.4%</span>
-              </div>
-
-              <div className="space-y-2 text-xs">
-                <div className="space-y-1">
-                  <div className="flex justify-between text-[11px]">
-                    <span className="text-slate-300">Serum Creatinine (2.1 mg/dL)</span>
-                    <span className="text-rose-400 font-mono font-semibold">+32.4% Impact</span>
-                  </div>
-                  <div className="w-full bg-slate-900 h-3 rounded-full overflow-hidden flex">
-                    <div className="bg-slate-800 h-full w-1/3"></div>
-                    <div className="bg-rose-500 h-full w-2/3 rounded-r-full"></div>
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <div className="flex justify-between text-[11px]">
-                    <span className="text-slate-300">Albumin Grade 2</span>
-                    <span className="text-rose-400 font-mono font-semibold">+18.1% Impact</span>
-                  </div>
-                  <div className="w-full bg-slate-900 h-3 rounded-full overflow-hidden flex">
-                    <div className="bg-slate-800 h-full w-[45%]"></div>
-                    <div className="bg-rose-500/80 h-full w-[35%] rounded-r-full"></div>
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <div className="flex justify-between text-[11px]">
-                    <span className="text-slate-300">Normal Sodium (138 mEq/L)</span>
-                    <span className="text-emerald-400 font-mono font-semibold">-5.2% Impact</span>
-                  </div>
-                  <div className="w-full bg-slate-900 h-3 rounded-full overflow-hidden flex justify-end">
-                    <div className="bg-emerald-500 h-full w-[20%] rounded-l-full"></div>
-                    <div className="bg-slate-800 h-full w-[80%]"></div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="pt-2 flex justify-between items-center text-xs border-t border-slate-800 text-slate-400">
-                <span>Prediction Probability:</span>
-                <span className="text-base font-bold text-rose-400 font-mono">78.0%</span>
-              </div>
+            <div className="fact-panel">
+              <h3>Why CKD can be hard to detect early</h3>
+              <ul className="fact-list">
+                <li><span className="n">1</span><div><b>Few early symptoms</b><span>The kidneys can compensate for lost function, so early stages often feel normal.</span></div></li>
+                <li><span className="n">2</span><div><b>Symptoms are non-specific</b><span>Tiredness or swelling can have many causes and are easy to overlook.</span></div></li>
+                <li><span className="n">3</span><div><b>Detection needs tests</b><span>Blood tests (creatinine, eGFR) and urine tests (albumin, ACR) are usually required.</span></div></li>
+                <li><span className="n">4</span><div><b>Regular evaluation matters</b><span>People at higher risk should have kidney checks as advised by their doctor.</span></div></li>
+              </ul>
             </div>
+          </div>
 
+          <div className="grid-3">
+            {ABOUT_CARDS.map((c) => (
+              <div className="card card-hover info-card" key={c.title}>
+                <span className={`ic ${c.tone}`}><c.icon /></span>
+                <h3>{c.title}</h3>
+                <p>{c.text}</p>
+                <ul>{c.list.map((l) => <li key={l}>{l}</li>)}</ul>
+              </div>
+            ))}
+          </div>
+
+          <div className="alert alert-info mt-24">
+            <Stethoscope />
+            <div>
+              <div className="alert-title">The importance of regular medical evaluation</div>
+              Because CKD is often silent, regular check-ups with simple blood and urine tests are the most reliable way
+              to find kidney problems early — especially if you have diabetes, high blood pressure or a family history of
+              kidney disease. Only a qualified healthcare professional can diagnose CKD.
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Call to Action Banner */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="bg-gradient-to-r from-sky-900/60 via-slate-900 to-indigo-900/60 rounded-3xl p-8 sm:p-12 border border-sky-500/30 text-center space-y-6 glow-cyan">
-          <h2 className="text-3xl font-extrabold text-white">Chronic Kidney Disease Prediction System</h2>
-          <p className="text-sm text-slate-300 max-w-2xl mx-auto">
-            An AI-assisted platform for analyzing clinical patient data and supporting CKD prediction.
-          </p>
-          <div className="flex flex-wrap items-center justify-center gap-4">
-            <button
-              onClick={() => onNavigate('/assessment')}
-              className="px-8 py-3.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-sm transition-all"
-            >
-              Start CKD Prediction
-            </button>
-            <button
-              onClick={() => onNavigate('/login')}
-              className="px-8 py-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold text-sm border border-slate-700 transition-all"
-            >
-              Sign In to Account
+      {/* ---------------- STAGES ---------------- */}
+      <section className="section section-alt" id="stages">
+        <div className="container">
+          <SectionHead
+            center
+            eyebrow="CKD Stages"
+            title="Understanding the stages of CKD"
+            text="CKD is commonly described in five stages based on the estimated glomerular filtration rate (eGFR), measured in mL/min/1.73m²."
+          />
+          <div className="stages">
+            {STAGES.map((s) => (
+              <div className="stage" key={s.stage}>
+                <div className="stage-bar" style={{ background: s.color }} />
+                <div className="stage-num">{s.stage}</div>
+                <h3>{s.name}</h3>
+                <div className="gfr">{s.gfr}<small>eGFR</small></div>
+                <p>{s.text}</p>
+              </div>
+            ))}
+          </div>
+          <div className="stage-scale">
+            <span>Higher kidney function</span>
+            <div className="grad" />
+            <span>Lower kidney function</span>
+          </div>
+          <div className="alert alert-warn mt-24">
+            <TriangleAlert />
+            <div>
+              <div className="alert-title">Educational information only</div>
+              This overview is general education and is not an individual patient's diagnosis or stage. Staging also
+              considers urine albumin levels and other findings, and must be determined by a qualified healthcare professional.
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ---------------- PREVENTION ---------------- */}
+      <section className="section" id="prevention">
+        <div className="container">
+          <SectionHead
+            eyebrow="Prevention"
+            title="Healthy kidney habits"
+            text="General habits that support kidney health. This is educational information, not personalised medical advice — always follow the guidance of your own healthcare provider."
+          />
+          <div className="grid-3">
+            {HABITS.map((h) => (
+              <div className="card card-hover info-card" key={h.title}>
+                <span className={`ic ${h.tone}`}><h.icon /></span>
+                <h3>{h.title}</h3>
+                <p>{h.text}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ---------------- FEATURES ---------------- */}
+      <section className="section section-alt" id="features">
+        <div className="container">
+          <SectionHead
+            center
+            eyebrow="Platform Features"
+            title="Everything in one secure platform"
+            text="Tools for patients, doctors and administrators — available after signing in."
+          />
+          <div className="grid-4">
+            {FEATURES.map((f) => (
+              <div className="card card-hover feature" key={f.title}>
+                <span className={`ic ${f.tone}`}><f.icon /></span>
+                <h3>{f.title}</h3>
+                <p>{f.text}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ---------------- HOW IT WORKS ---------------- */}
+      <section className="section" id="how-it-works">
+        <div className="container">
+          <SectionHead
+            center
+            eyebrow="How It Works"
+            title="From sign-in to reviewed result"
+            text="A simple, guided process. The prediction tool becomes available after you log in."
+          />
+          <div className="steps">
+            {STEPS.map((s, i) => (
+              <div className="step" key={s.title}>
+                <div className="step-circle"><s.icon /></div>
+                <div>
+                  <div className="step-no">Step {i + 1}</div>
+                  <h3>{s.title}</h3>
+                  <p>{s.text}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="lock-note">
+            <span className="badge badge-green" style={{ height: 34, padding: '0 16px', fontSize: 13 }}>
+              <Lock /> Prediction is available only after login
+            </span>
+          </div>
+        </div>
+      </section>
+
+      {/* ---------------- CTA ---------------- */}
+      <section className="section" style={{ paddingTop: 0 }}>
+        <div className="container">
+          <div className="cta-band">
+            <div style={{ position: 'relative', zIndex: 1 }}>
+              <h2>Want to check your CKD risk?</h2>
+              <p>Sign in to access the CKD risk prediction system.</p>
+            </div>
+            <button className="btn btn-primary btn-lg" onClick={toLogin}>
+              Login / Get Started <ArrowRight />
             </button>
           </div>
         </div>
       </section>
 
-    </div>
+      {/* ---------------- FAQ ---------------- */}
+      <section className="section section-alt" id="faq">
+        <div className="container">
+          <SectionHead center eyebrow="FAQ" title="Frequently asked questions" />
+          <div className="faq">
+            {FAQS.map((f, i) => (
+              <FaqItem key={f.q} item={f} idx={i} open={openFaq === i} onToggle={() => setOpenFaq(openFaq === i ? -1 : i)} />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ---------------- CONTACT ---------------- */}
+      <section className="section" id="contact">
+        <div className="container">
+          <SectionHead center eyebrow="Contact" title="Need help?" text="Who to contact depends on what you need." />
+          <div className="contact-grid">
+            <div className="card info-card">
+              <span className="ic tone-green"><Users /></span>
+              <h3>Account access</h3>
+              <p>For new accounts, sign-in problems or password resets, please contact your hospital's system administrator.</p>
+            </div>
+            <div className="card info-card">
+              <span className="ic tone-blue"><UserRound /></span>
+              <h3>Questions about results</h3>
+              <p>Discuss any prediction, explanation or report with your treating doctor, who can interpret it alongside your full medical history.</p>
+            </div>
+            <div className="card info-card">
+              <span className="ic tone-red"><Phone /></span>
+              <h3>Medical emergencies</h3>
+              <p>CKD PREDICT is not an emergency service. If you feel seriously unwell, contact your local emergency number or nearest hospital immediately.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ---------------- DISCLAIMER ---------------- */}
+      <div className="disclaimer-band">
+        <div className="container">
+          <TriangleAlert />
+          <p><b>Medical Disclaimer</b>{MEDICAL_DISCLAIMER}</p>
+        </div>
+      </div>
+    </>
   );
 }

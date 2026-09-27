@@ -1,186 +1,305 @@
-import React, { useState } from 'react';
-import { UserCheck, Stethoscope, Lock, Mail, User, Activity, AlertCircle, CheckCircle2, ArrowLeft } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import {
+  Mail, Lock, User, ArrowLeft, Loader2, Send, ShieldCheck, Check, IdCard, Stethoscope, KeyRound, Eye, EyeOff,
+} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import apiService from '../services/api';
+import { AuthAside } from './Login';
+import { Alert } from './ui/UI';
 
-export default function Signup({ onNavigate }) {
-  const { signup } = useAuth();
-  
-  const [role, setRole] = useState('patient');
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [error, setError] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    setSuccessMessage('');
-
-    const result = await signup({ name, email, password, confirmPassword, role });
-    if (result.success) {
-      setSuccessMessage('Account registered successfully.');
-      setTimeout(() => {
-        onNavigate('login');
-      }, 1500);
-    } else {
-      setError(result.error);
-    }
-  };
-
+function Stepper({ step }) {
+  const steps = ['Gmail', 'Verify OTP', 'Account details'];
   return (
-    <div className="max-w-lg mx-auto my-8 px-4">
-      <div className="glass-panel rounded-3xl p-8 border border-slate-800 space-y-6 glow-cyan">
-        
-        {/* Header & Back to Home */}
-        <div className="flex items-center justify-between">
-          <button
-            onClick={() => onNavigate('home')}
-            className="text-xs text-slate-400 hover:text-sky-400 transition-colors flex items-center space-x-1 font-medium"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Back to Home</span>
-          </button>
-          <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded bg-sky-500/10 text-sky-400 border border-sky-500/30">
-            Registration
-          </span>
-        </div>
-
-        <div className="text-center space-y-2">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-sky-500/10 border border-sky-500/30 text-sky-400 mb-1">
-            <Activity className="w-6 h-6 animate-pulse-subtle" />
-          </div>
-          <h2 className="text-2xl font-bold text-white">Create CKD PREDICT Account</h2>
-          <p className="text-xs text-slate-400">Chronic Kidney Disease Prediction System</p>
-        </div>
-
-        {/* Role Selector Tabs (ONLY Patient and Doctor, Admin disabled) */}
-        <div>
-          <label className="block text-slate-300 text-xs font-semibold mb-1.5">Select Role for Signup</label>
-          <div className="grid grid-cols-2 gap-2 bg-slate-900 p-1 rounded-xl border border-slate-800 text-xs">
-            <button
-              type="button"
-              onClick={() => setRole('patient')}
-              className={`py-2.5 rounded-lg font-semibold flex items-center justify-center space-x-1.5 transition-all ${
-                role === 'patient' ? 'bg-sky-500 text-slate-950 shadow' : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <UserCheck className="w-4 h-4" />
-              <span>Patient</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setRole('doctor')}
-              className={`py-2.5 rounded-lg font-semibold flex items-center justify-center space-x-1.5 transition-all ${
-                role === 'doctor' ? 'bg-teal-500 text-slate-950 shadow' : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <Stethoscope className="w-4 h-4" />
-              <span>Doctor</span>
-            </button>
-          </div>
-          <p className="text-[10px] text-slate-500 mt-1">Admin accounts cannot be created via self-registration.</p>
-        </div>
-
-        {/* Alert Messages */}
-        {error && (
-          <div className="bg-rose-500/10 border border-rose-500/30 p-3 rounded-xl text-rose-400 text-xs flex items-center space-x-2">
-            <AlertCircle className="w-4 h-4 shrink-0" />
-            <span>{error}</span>
-          </div>
-        )}
-
-        {successMessage && (
-          <div className="bg-emerald-500/10 border border-emerald-500/30 p-3.5 rounded-xl text-emerald-400 text-xs flex items-center space-x-2">
-            <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
-            <span className="font-semibold">{successMessage} Redirecting to login...</span>
-          </div>
-        )}
-
-        {/* Auth Form */}
-        <form onSubmit={handleSubmit} className="space-y-4 text-xs">
-          <div>
-            <label className="block text-slate-300 font-medium mb-1">Full Name</label>
-            <div className="relative">
-              <User className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
-              <input
-                type="text"
-                required
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full pl-9 pr-3 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-slate-200 focus:outline-none focus:border-sky-500 transition-colors"
-                placeholder={role === 'doctor' ? 'Dr. Sarah Jenkins' : 'John Doe'}
-              />
+    <div className="stepper" aria-label={`Step ${step} of 3`}>
+      {steps.map((label, i) => {
+        const n = i + 1;
+        const state = n < step ? 'done' : n === step ? 'active' : '';
+        return (
+          <React.Fragment key={label}>
+            <div className={`s ${state}`}>
+              <span className="dot">{n < step ? <Check /> : n}</span>
+              <span className="t">{label}</span>
             </div>
-          </div>
-
-          <div>
-            <label className="block text-slate-300 font-medium mb-1">Email Address</label>
-            <div className="relative">
-              <Mail className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full pl-9 pr-3 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-slate-200 focus:outline-none focus:border-sky-500 transition-colors"
-                placeholder="name@domain.com"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-slate-300 font-medium mb-1">Password (Min. 6 characters)</label>
-            <div className="relative">
-              <Lock className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
-              <input
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full pl-9 pr-3 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-slate-200 focus:outline-none focus:border-sky-500 transition-colors"
-                placeholder="••••••••"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-slate-300 font-medium mb-1">Confirm Password</label>
-            <div className="relative">
-              <Lock className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
-              <input
-                type="password"
-                required
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full pl-9 pr-3 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-slate-200 focus:outline-none focus:border-sky-500 transition-colors"
-                placeholder="••••••••"
-              />
-            </div>
-          </div>
-
-          <button
-            type="submit"
-            className="w-full py-3 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold text-sm shadow-lg shadow-sky-500/20 transition-all mt-2"
-          >
-            Register {role.toUpperCase()} Account
-          </button>
-        </form>
-
-        <div className="text-center text-xs text-slate-400 pt-2 border-t border-slate-800">
-          <span>Already registered? </span>
-          <button
-            onClick={() => onNavigate('login')}
-            className="text-sky-400 hover:underline font-semibold"
-          >
-            Sign In Here
-          </button>
-        </div>
-
-      </div>
+            {n < 3 && <div className={`line ${n < step ? 'done' : ''}`} />}
+          </React.Fragment>
+        );
+      })}
     </div>
   );
 }
 
+/** Explains honestly when the server does not provide the OTP endpoints. */
+function BackendMissing({ status, message, code }) {
+  const missing = status === 404 || status === 405 || code === 'email_not_configured';
+  if (status === 0) {
+    return <Alert type="error" title="Server unreachable">{message}</Alert>;
+  }
+  return (
+    <Alert type="warn" title={missing ? 'Email verification is not available' : 'Could not continue'}>
+      {missing ? (
+        <>
+          Email verification is not configured on the server, so self sign-up can't be completed right now.
+          Please contact the hospital administrator, who can create your account.
+        </>
+      ) : (
+        message
+      )}
+    </Alert>
+  );
+}
+
+export default function Signup({ onNavigate, role = 'patient' }) {
+  const { signup } = useAuth();
+  const isDoctor = role === 'doctor';
+
+  const [step, setStep] = useState(1);
+  const [email, setEmail] = useState('');
+  const [otp, setOtp] = useState('');
+  const [verificationToken, setVerificationToken] = useState('');
+  const [form, setForm] = useState({ name: '', doctorId: '', treatingDoctor: '', password: '', confirm: '' });
+  const [showPw, setShowPw] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState(null); // { status, message }
+  const [errors, setErrors] = useState({});
+  const [info, setInfo] = useState('');
+  const [doctors, setDoctors] = useState({ loading: false, list: [], error: '' });
+
+  // Treating doctor list for patient registration (requires a public doctors endpoint)
+  useEffect(() => {
+    if (isDoctor || step !== 3) return;
+    let alive = true;
+    setDoctors({ loading: true, list: [], error: '' });
+    apiService.getRegistrationDoctors().then((res) => {
+      if (!alive) return;
+      const list = res.ok ? (res.data?.doctors || res.data?.users || []) : [];
+      setDoctors({ loading: false, list, error: res.ok ? (list.length ? '' : 'No active doctors are registered yet. Please contact the hospital.') : (res.data?.error || 'Could not load the doctor list.') });
+    });
+    return () => { alive = false; };
+  }, [isDoctor, step]);
+
+  const sendOtp = async (e) => {
+    e?.preventDefault();
+    setProblem(null);
+    setInfo('');
+    if (!EMAIL_RE.test(email.trim())) {
+      setErrors({ email: 'Enter a valid Gmail address.' });
+      return;
+    }
+    setErrors({});
+    setBusy(true);
+    const res = await apiService.sendEmailOtp(email.trim().toLowerCase(), role);
+    setBusy(false);
+    if (res.ok && res.data?.success) {
+      setInfo(res.data.message || `A verification code was sent to ${email.trim()}.`);
+      setStep(2);
+    } else {
+      setProblem({ status: res.status, message: res.data?.error, code: res.data?.code });
+    }
+  };
+
+  const verifyOtp = async (e) => {
+    e.preventDefault();
+    setProblem(null);
+    if (!/^\d{6}$/.test(otp.trim())) {
+      setErrors({ otp: 'Enter the 6-digit code from your email.' });
+      return;
+    }
+    setErrors({});
+    setBusy(true);
+    const res = await apiService.verifyEmailOtp(email.trim().toLowerCase(), otp.trim(), role);
+    setBusy(false);
+    if (res.ok && res.data?.success) {
+      setVerificationToken(res.data.verification_token || '');
+      setInfo('Gmail verified. Complete your account details.');
+      setStep(3);
+    } else {
+      setProblem({ status: res.status, message: res.data?.error || 'The code could not be verified.' });
+    }
+  };
+
+  const createAccount = async (e) => {
+    e.preventDefault();
+    setProblem(null);
+    const errs = {};
+    if (!form.name.trim()) errs.name = `${isDoctor ? 'Doctor' : 'Patient'} name is required.`;
+    if (isDoctor && !form.doctorId.trim()) errs.doctorId = 'Doctor ID is required.';
+    if (!isDoctor && !form.treatingDoctor) errs.treatingDoctor = 'Select your treating doctor.';
+    if (form.password.length < 8 || !/[A-Za-z]/.test(form.password) || !/\d/.test(form.password)) {
+      errs.password = 'Use at least 8 characters with a letter and a number.';
+    }
+    if (form.password !== form.confirm) errs.confirm = 'Passwords do not match.';
+    setErrors(errs);
+    if (Object.keys(errs).length) return;
+
+    setBusy(true);
+    const payload = {
+      role,
+      name: form.name.trim(),
+      email: email.trim().toLowerCase(),
+      password: form.password,
+      verification_token: verificationToken,
+      ...(isDoctor ? { doctor_id: form.doctorId.trim() } : { treating_doctor_id: form.treatingDoctor }),
+    };
+    const res = await signup(payload);
+    setBusy(false);
+    if (res.success) {
+      setInfo('Account created successfully. Redirecting to sign in…');
+      setTimeout(() => onNavigate(`/login/${role}`), 1500);
+    } else {
+      setProblem({ status: res.status, message: res.error });
+      if (res.status === 403) {
+        // Verification expired or already used: restart from step 1
+        setStep(1);
+        setOtp('');
+        setVerificationToken('');
+      }
+    }
+  };
+
+  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+
+  return (
+    <div className="auth-page">
+      <AuthAside
+        title={isDoctor ? 'Join as a Doctor' : 'Create your patient account'}
+        text={isDoctor
+          ? 'Review patient CKD risk predictions, SHAP explanations and reports from one dashboard.'
+          : 'Run AI-assisted CKD risk predictions and keep your results and reports in one place.'}
+      />
+
+      <div className="auth-main">
+        <div className="auth-card">
+          <button className="back-link" onClick={() => onNavigate(`/login/${role}`)}>
+            <ArrowLeft /> Back to Sign In
+          </button>
+          <h1>{isDoctor ? 'Doctor Sign Up' : 'Patient Sign Up'}</h1>
+          <p className="sub">Verify your Gmail address, then complete your account details.</p>
+
+          <Stepper step={step} />
+
+          {info && !problem && <Alert type="success" className="mt-8">{info}</Alert>}
+          {problem && <BackendMissing status={problem.status} message={problem.message} code={problem.code} />}
+
+          {step === 1 && (
+            <form onSubmit={sendOtp} className="stack mt-16" noValidate>
+              <div className="field">
+                <label className="label" htmlFor="su-email">Gmail Address</label>
+                <div className="input-icon">
+                  <Mail />
+                  <input id="su-email" className={`input ${errors.email ? 'invalid' : ''}`} type="email" value={email}
+                    onChange={(e) => setEmail(e.target.value)} placeholder="name@gmail.com" autoComplete="email" />
+                </div>
+                {errors.email ? <span className="error-text">{errors.email}</span> : <span className="hint">We'll send a one-time code to verify this address.</span>}
+              </div>
+              <button className="btn btn-primary btn-lg btn-block" disabled={busy}>
+                {busy ? <Loader2 className="spin" /> : <Send />} Send OTP
+              </button>
+            </form>
+          )}
+
+          {step === 2 && (
+            <form onSubmit={verifyOtp} className="stack mt-16" noValidate>
+              <div className="field">
+                <label className="label" htmlFor="su-otp">Enter Gmail OTP</label>
+                <div className="input-icon">
+                  <KeyRound />
+                  <input id="su-otp" className={`input ${errors.otp ? 'invalid' : ''}`} inputMode="numeric" value={otp}
+                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="6-digit code"
+                    style={{ letterSpacing: '.3em', fontWeight: 600 }} autoComplete="one-time-code" />
+                </div>
+                {errors.otp ? <span className="error-text">{errors.otp}</span> : <span className="hint">Sent to {email}. The code expires in 10 minutes.</span>}
+              </div>
+              <button className="btn btn-primary btn-lg btn-block" disabled={busy}>
+                {busy ? <Loader2 className="spin" /> : <ShieldCheck />} Verify OTP
+              </button>
+              <div className="auth-links">
+                <button type="button" className="link" onClick={() => { setStep(1); setOtp(''); setInfo(''); setProblem(null); }}>Change Gmail</button>
+                <button type="button" className="link" onClick={sendOtp} disabled={busy}>Resend code</button>
+              </div>
+            </form>
+          )}
+
+          {step === 3 && (
+            <form onSubmit={createAccount} className="stack mt-16" noValidate>
+              <div className="field">
+                <label className="label" htmlFor="su-name">{isDoctor ? 'Doctor Name' : 'Patient Name'}</label>
+                <div className="input-icon">
+                  <User />
+                  <input id="su-name" className={`input ${errors.name ? 'invalid' : ''}`} value={form.name} onChange={set('name')} placeholder="Full name" autoComplete="name" />
+                </div>
+                {errors.name && <span className="error-text">{errors.name}</span>}
+              </div>
+
+              {isDoctor && (
+                <div className="field">
+                  <label className="label" htmlFor="su-docid">Doctor ID</label>
+                  <div className="input-icon">
+                    <IdCard />
+                    <input id="su-docid" className={`input ${errors.doctorId ? 'invalid' : ''}`} value={form.doctorId} onChange={set('doctorId')} placeholder="Registration / employee ID" />
+                  </div>
+                  {errors.doctorId ? <span className="error-text">{errors.doctorId}</span> : <span className="hint">Must be unique — checked by the server.</span>}
+                </div>
+              )}
+
+              <div className="field">
+                <label className="label" htmlFor="su-gmail">Gmail</label>
+                <div className="input-icon">
+                  <Mail />
+                  <input id="su-gmail" className="input" value={email} disabled />
+                </div>
+                <span className="hint">Verified address</span>
+              </div>
+
+              {!isDoctor && (
+                <div className="field">
+                  <label className="label" htmlFor="su-doctor">Treating Doctor</label>
+                  <div className="input-icon">
+                    <Stethoscope />
+                    <select id="su-doctor" className={`select ${errors.treatingDoctor ? 'invalid' : ''}`} style={{ paddingLeft: 40 }}
+                      value={form.treatingDoctor} onChange={set('treatingDoctor')} disabled={doctors.loading || doctors.list.length === 0}>
+                      <option value="">{doctors.loading ? 'Loading doctors…' : doctors.list.length ? 'Select your doctor' : 'No doctors available'}</option>
+                      {doctors.list.map((d) => (
+                        <option key={d.id} value={d.id}>{d.name}{d.doctor_id ? ` (${d.doctor_id})` : ''}{(d.specialty || d.specialty_or_department) ? ` — ${d.specialty || d.specialty_or_department}` : ''}</option>
+                      ))}
+                    </select>
+                  </div>
+                  {errors.treatingDoctor ? <span className="error-text">{errors.treatingDoctor}</span> : doctors.error ? <span className="hint">{doctors.error}</span> : null}
+                </div>
+              )}
+
+              <div className="grid-2" style={{ gap: 14 }}>
+                <div className="field">
+                  <label className="label" htmlFor="su-pw">Password</label>
+                  <div className="input-icon">
+                    <Lock />
+                    <input id="su-pw" type={showPw ? 'text' : 'password'} className={`input ${errors.password ? 'invalid' : ''}`} value={form.password} onChange={set('password')} autoComplete="new-password" style={{ paddingRight: 44 }} />
+                    <button type="button" className="toggle" onClick={() => setShowPw((v) => !v)} aria-label="Toggle password visibility">{showPw ? <EyeOff /> : <Eye />}</button>
+                  </div>
+                  {errors.password ? <span className="error-text">{errors.password}</span> : <span className="hint">8+ characters, letters and numbers</span>}
+                </div>
+                <div className="field">
+                  <label className="label" htmlFor="su-pw2">Confirm Password</label>
+                  <div className="input-icon">
+                    <Lock />
+                    <input id="su-pw2" type={showPw ? 'text' : 'password'} className={`input ${errors.confirm ? 'invalid' : ''}`} value={form.confirm} onChange={set('confirm')} autoComplete="new-password" />
+                  </div>
+                  {errors.confirm && <span className="error-text">{errors.confirm}</span>}
+                </div>
+              </div>
+
+              <button className="btn btn-primary btn-lg btn-block" disabled={busy}>
+                {busy ? <Loader2 className="spin" /> : <Check />} {isDoctor ? 'Create Doctor Account' : 'Create Patient Account'}
+              </button>
+            </form>
+          )}
+
+          <div className="auth-foot">
+            Already have an account? <button className="link" onClick={() => onNavigate(`/login/${role}`)}>Sign In</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

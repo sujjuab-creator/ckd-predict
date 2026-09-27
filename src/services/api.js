@@ -2,7 +2,7 @@ const RAW_BASE_URL = (typeof import.meta !== 'undefined' && import.meta.env && i
   ? import.meta.env.VITE_API_BASE_URL
   : 'http://localhost:5000';
 
-const API_BASE_URL = RAW_BASE_URL.replace(/\/+$/, '').endsWith('/api')
+export const API_BASE_URL = RAW_BASE_URL.replace(/\/+$/, '').endsWith('/api')
   ? RAW_BASE_URL.replace(/\/+$/, '')
   : `${RAW_BASE_URL.replace(/\/+$/, '')}/api`;
 
@@ -30,25 +30,35 @@ async function fetchAPI(endpoint, options = {}) {
     },
   };
 
+  let response;
   try {
-    const response = await fetch(url, config);
-    const data = await response.json();
-    return {
-      ok: response.ok,
-      status: response.status,
-      data: data,
-    };
+    response = await fetch(url, config);
   } catch (error) {
     return {
       ok: false,
       status: 0,
       data: {
         success: false,
-        error: 'Backend API server unreachable (http://localhost:5000). Please check backend server status.',
+        error: `Backend API server unreachable (${API_BASE_URL}). Please check backend server status.`,
       },
       message: error.message,
     };
   }
+
+  let data;
+  try {
+    data = await response.json();
+  } catch {
+    data = {
+      success: false,
+      error: `Unexpected response from server (HTTP ${response.status}).`,
+    };
+  }
+  return {
+    ok: response.ok,
+    status: response.status,
+    data: data,
+  };
 }
 
 export const apiService = {
@@ -59,7 +69,10 @@ export const apiService = {
 
   // 2. Authentication
   async register(userData) {
-    return await fetchAPI('/auth/register', {
+    // Patient/Doctor self-registration (requires a verification_token from verify-otp)
+    const role = userData?.role;
+    const endpoint = role === 'patient' || role === 'doctor' ? `/auth/register/${role}` : '/auth/register';
+    return await fetchAPI(endpoint, {
       method: 'POST',
       body: JSON.stringify(userData),
     });
@@ -69,6 +82,57 @@ export const apiService = {
     return await fetchAPI('/auth/login', {
       method: 'POST',
       body: JSON.stringify(credentials),
+    });
+  },
+
+  async getCurrentUser() {
+    return await fetchAPI('/auth/me', { method: 'GET' });
+  },
+
+  // ------------------------------------------------------------------
+  // Email OTP self-registration (Patient / Doctor). The OTP is emailed by the
+  // backend and never returned by the API. Verification returns a
+  // verification_token that the registration endpoint re-checks server-side.
+  // ------------------------------------------------------------------
+  async sendEmailOtp(email, role) {
+    return await fetchAPI('/auth/send-otp', {
+      method: 'POST',
+      body: JSON.stringify({ email, purpose: `${role}_signup` }),
+    });
+  },
+
+  async verifyEmailOtp(email, otp, role) {
+    return await fetchAPI('/auth/verify-otp', {
+      method: 'POST',
+      body: JSON.stringify({ email, otp, purpose: `${role}_signup` }),
+    });
+  },
+
+  async getRegistrationDoctors() {
+    return await fetchAPI('/auth/doctors', { method: 'GET' });
+  },
+
+  // Care-team relationship
+  async getMyDoctor() {
+    return await fetchAPI('/auth/me/doctor', { method: 'GET' });
+  },
+
+  async getMyPatients() {
+    return await fetchAPI('/auth/me/patients', { method: 'GET' });
+  },
+
+  // Password reset by email
+  async forgotPassword(email) {
+    return await fetchAPI('/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    });
+  },
+
+  async resetPassword(token, newPassword) {
+    return await fetchAPI('/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ token, new_password: newPassword }),
     });
   },
 

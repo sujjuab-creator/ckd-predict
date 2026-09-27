@@ -1,333 +1,80 @@
-import React, { useState } from 'react';
-import { 
-  User, ArrowLeft, Activity, FileText, AlertTriangle, 
-  Calendar, CheckCircle2, Clock, ShieldCheck, Eye, Sparkles, X
-} from 'lucide-react';
-import { getPatientById, MOCK_PATIENTS } from '../../data/mockPatients';
-import { getPredictionsByPatientId, MOCK_PREDICTIONS } from '../../data/mockPredictions';
-import PredictionResultView from '../PredictionResultView';
-import { predictCKD } from '../../utils/ckdPredictor';
+import React, { useMemo } from 'react';
+import { ArrowLeft, IdCard, PlusCircle, History, FileText, Activity, ShieldAlert } from 'lucide-react';
+import { Card, PageHeader, Loading, EmptyState, StatCard, Disclaimer } from '../ui/UI';
+import { TrendChart } from '../ui/Charts';
+import { PredictionsTable, ReportsTable } from '../prediction/Tables';
+import { formatDate, riskSplit } from '../../utils/format';
 
-export default function DoctorPatientDetails({ patientId, onNavigate }) {
-  const patient = getPatientById(patientId) || MOCK_PATIENTS[0];
-  const history = getPredictionsByPatientId(patient.id);
-  const [selectedPredictionModal, setSelectedPredictionModal] = useState(null);
+export default function DoctorPatientDetails({ onNavigate, patients, predictions, reports, patientDbId }) {
+  const patient = patients.list.find((p) => Number(p.id) === Number(patientDbId));
+  const list = useMemo(() => predictions.list.filter((p) => Number(p.patient_id) === Number(patientDbId)), [predictions.list, patientDbId]);
+  const repList = useMemo(() => reports.list.filter((r) => Number(r.patient_id) === Number(patientDbId)), [reports.list, patientDbId]);
 
-  // Latest prediction for summary
-  const latestPred = history[0] || {
-    id: `PRED-${patient.id}`,
-    date: patient.lastPrediction,
-    result: patient.result,
-    model: 'Random Forest v2.4 (Ensemble)',
-    status: 'Reviewed'
-  };
+  if (patients.loading) return <Loading label="Loading patient…" />;
+  if (!patient) {
+    return (
+      <Card>
+        <EmptyState
+          icon={IdCard}
+          title="Patient not found"
+          message="This patient record does not exist or could not be loaded."
+          action={<button className="btn btn-primary" onClick={() => onNavigate('/doctor/patients')}>Back to patients</button>}
+        />
+      </Card>
+    );
+  }
 
-  const clinical = patient.clinicalInfo || {
-    bp: 135,
-    sg: 1.015,
-    al: 2,
-    su: 1,
-    sc: patient.lastCreatinine || 2.1,
-    bu: 52,
-    hemo: 11.2,
-    bgr: 168,
-    sod: 134,
-    pot: 4.8,
-    pcv: 35,
-    wbcc: 9800,
-    rbcc: 3.8,
-    htn: 'yes',
-    dm: 'yes',
-    pe: 'yes',
-    ane: 'no'
-  };
-
-  const handleViewPredictionDetails = (predRecord) => {
-    // Generate full prediction view result using evaluator
-    const fullResult = predictCKD({
-      ...clinical,
-      ...predRecord,
-      age: patient.age,
-      gender: patient.gender,
-      sc: predRecord.sc || clinical.sc
-    });
-    setSelectedPredictionModal(fullResult);
-  };
+  const split = riskSplit(list);
+  const probTrend = [...list].reverse().map((p) => ({ label: p.created_at, value: Math.round((Number(p.prediction_probability) || 0) * 1000) / 10 }));
 
   return (
-    <div className="space-y-8">
-      
-      {/* Back button & Title */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <button
-          onClick={() => onNavigate('/doctor/patients')}
-          className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 font-semibold text-xs transition-all flex items-center space-x-2 w-fit"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span>Back to Patients Roster</span>
-        </button>
-
-        <span className="px-3 py-1 rounded-full bg-teal-500/10 text-teal-400 border border-teal-500/20 text-xs font-bold w-fit">
-          PATIENT RECORD
-        </span>
-      </div>
-
-      {/* Clinical Disclaimer */}
-      <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 flex items-start space-x-3 text-slate-300 text-xs">
-        <AlertCircle className="w-5 h-5 text-sky-400 shrink-0 mt-0.5" />
-        <div>
-          <span className="font-bold text-sky-400">Clinical System Notice: </span>
-          <span>This system provides an AI-assisted CKD risk prediction based on supplied data and is not a medical diagnosis. Results should be reviewed by a qualified healthcare professional.</span>
-        </div>
-      </div>
-
-      {/* PATIENT INFORMATION CARD (Section 6) */}
-      <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-slate-800 space-y-6">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-slate-800/80 pb-6">
-          <div className="flex items-center space-x-4">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-teal-500/20 to-sky-500/20 border border-teal-500/30 flex items-center justify-center text-teal-400 font-bold text-xl">
-              {patient.name.charAt(0)}
-            </div>
-            <div>
-              <div className="flex items-center space-x-2">
-                <h1 className="text-2xl font-extrabold text-white">{patient.name}</h1>
-                <span className="px-2.5 py-0.5 rounded-full bg-teal-500/10 text-teal-400 border border-teal-500/30 text-xs font-mono font-bold">
-                  {patient.id}
-                </span>
-              </div>
-              <p className="text-xs text-slate-400 mt-1">MRN: <strong className="text-slate-200 font-mono">{patient.mrn}</strong></p>
-            </div>
-          </div>
-
-          <div className="flex items-center space-x-3">
-            <span className={`px-4 py-2 rounded-xl text-xs font-bold border ${
-              patient.result === 'CKD'
-                ? 'bg-rose-500/20 text-rose-400 border-rose-500/30'
-                : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
-            }`}>
-              Latest Result: {patient.result}
-            </span>
-          </div>
-        </div>
-
-        {/* Info Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 text-xs">
-          <div className="bg-slate-900/80 p-4 rounded-2xl border border-slate-800/80">
-            <span className="text-slate-400 block font-medium">Patient ID</span>
-            <span className="text-white font-mono font-bold text-sm mt-0.5 block">{patient.id}</span>
-          </div>
-
-          <div className="bg-slate-900/80 p-4 rounded-2xl border border-slate-800/80">
-            <span className="text-slate-400 block font-medium">Full Name</span>
-            <span className="text-white font-bold text-sm mt-0.5 block">{patient.name}</span>
-          </div>
-
-          <div className="bg-slate-900/80 p-4 rounded-2xl border border-slate-800/80">
-            <span className="text-slate-400 block font-medium">Email</span>
-            <span className="text-white font-mono text-sm mt-0.5 block truncate">{patient.email}</span>
-          </div>
-
-          <div className="bg-slate-900/80 p-4 rounded-2xl border border-slate-800/80">
-            <span className="text-slate-400 block font-medium">Age</span>
-            <span className="text-white font-bold text-sm mt-0.5 block">{patient.age} years</span>
-          </div>
-
-          <div className="bg-slate-900/80 p-4 rounded-2xl border border-slate-800/80">
-            <span className="text-slate-400 block font-medium">Gender</span>
-            <span className="text-white font-bold text-sm mt-0.5 block">{patient.gender}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* PREDICTION SUMMARY CARD (Section 6) */}
-      <div className="glass-panel p-6 rounded-3xl border border-slate-800 space-y-4">
-        <h2 className="text-base font-bold text-white flex items-center space-x-2">
-          <Activity className="w-5 h-5 text-teal-400" />
-          <span>Latest Prediction Summary</span>
-        </h2>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
-          <div className="bg-slate-900 p-4 rounded-2xl border border-slate-800">
-            <span className="text-slate-400 font-medium block">Prediction ID</span>
-            <span className="text-teal-400 font-mono font-bold text-sm mt-0.5 block">{latestPred.id}</span>
-          </div>
-
-          <div className="bg-slate-900 p-4 rounded-2xl border border-slate-800">
-            <span className="text-slate-400 font-medium block">Prediction Date</span>
-            <span className="text-white font-mono text-sm mt-0.5 block">{latestPred.date}</span>
-          </div>
-
-          <div className="bg-slate-900 p-4 rounded-2xl border border-slate-800">
-            <span className="text-slate-400 font-medium block">Result Classification</span>
-            <span className={`font-bold text-sm mt-0.5 block ${
-              latestPred.result === 'CKD' ? 'text-rose-400' : 'text-emerald-400'
-            }`}>
-              {latestPred.result}
-            </span>
-          </div>
-
-          <div className="bg-slate-900 p-4 rounded-2xl border border-slate-800">
-            <span className="text-slate-400 font-medium block">ML Model Used</span>
-            <span className="text-sky-400 font-semibold text-xs mt-0.5 block">{latestPred.model || 'Random Forest v2.4 (Ensemble)'}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* CLINICAL INFORMATION CARD (Section 6) */}
-      <div className="glass-panel p-6 rounded-3xl border border-slate-800 space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-base font-bold text-white flex items-center space-x-2">
-            <FileText className="w-5 h-5 text-teal-400" />
-            <span>Clinical Information & Biomarkers</span>
-          </h2>
-          <span className="text-[10px] text-slate-400 font-mono">LAB VALUES</span>
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 text-xs">
-          <div className="bg-slate-900 p-3.5 rounded-xl border border-slate-800">
-            <span className="text-slate-400 block text-[11px]">Serum Creatinine</span>
-            <span className="text-rose-400 font-mono font-bold text-sm">{clinical.sc} mg/dL</span>
-          </div>
-
-          <div className="bg-slate-900 p-3.5 rounded-xl border border-slate-800">
-            <span className="text-slate-400 block text-[11px]">Blood Urea</span>
-            <span className="text-slate-200 font-mono font-bold text-sm">{clinical.bu} mg/dL</span>
-          </div>
-
-          <div className="bg-slate-900 p-3.5 rounded-xl border border-slate-800">
-            <span className="text-slate-400 block text-[11px]">Hemoglobin</span>
-            <span className="text-sky-400 font-mono font-bold text-sm">{clinical.hemo} g/dL</span>
-          </div>
-
-          <div className="bg-slate-900 p-3.5 rounded-xl border border-slate-800">
-            <span className="text-slate-400 block text-[11px]">Blood Pressure</span>
-            <span className="text-amber-400 font-mono font-bold text-sm">{clinical.bp} mmHg</span>
-          </div>
-
-          <div className="bg-slate-900 p-3.5 rounded-xl border border-slate-800">
-            <span className="text-slate-400 block text-[11px]">Specific Gravity</span>
-            <span className="text-slate-200 font-mono font-bold text-sm">{clinical.sg}</span>
-          </div>
-
-          <div className="bg-slate-900 p-3.5 rounded-xl border border-slate-800">
-            <span className="text-slate-400 block text-[11px]">Albumin Level</span>
-            <span className="text-slate-200 font-mono font-bold text-sm">+{clinical.al}</span>
-          </div>
-
-          <div className="bg-slate-900 p-3.5 rounded-xl border border-slate-800">
-            <span className="text-slate-400 block text-[11px]">Blood Glucose</span>
-            <span className="text-slate-200 font-mono font-bold text-sm">{clinical.bgr} mg/dL</span>
-          </div>
-
-          <div className="bg-slate-900 p-3.5 rounded-xl border border-slate-800">
-            <span className="text-slate-400 block text-[11px]">Sodium (mEq/L)</span>
-            <span className="text-slate-200 font-mono font-bold text-sm">{clinical.sod}</span>
-          </div>
-
-          <div className="bg-slate-900 p-3.5 rounded-xl border border-slate-800">
-            <span className="text-slate-400 block text-[11px]">Potassium (mEq/L)</span>
-            <span className="text-slate-200 font-mono font-bold text-sm">{clinical.pot}</span>
-          </div>
-
-          <div className="bg-slate-900 p-3.5 rounded-xl border border-slate-800">
-            <span className="text-slate-400 block text-[11px]">Hypertension</span>
-            <span className="text-slate-200 font-bold capitalize text-sm">{clinical.htn}</span>
-          </div>
-
-          <div className="bg-slate-900 p-3.5 rounded-xl border border-slate-800">
-            <span className="text-slate-400 block text-[11px]">Diabetes Mellitus</span>
-            <span className="text-slate-200 font-bold capitalize text-sm">{clinical.dm}</span>
-          </div>
-
-          <div className="bg-slate-900 p-3.5 rounded-xl border border-slate-800">
-            <span className="text-slate-400 block text-[11px]">Pedal Edema</span>
-            <span className="text-slate-200 font-bold capitalize text-sm">{clinical.pe}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* PATIENT PREDICTION HISTORY (Section 7) */}
-      <div className="glass-panel p-6 rounded-3xl border border-slate-800 space-y-4">
-        <h2 className="text-base font-bold text-white flex items-center space-x-2">
-          <Clock className="w-5 h-5 text-teal-400" />
-          <span>Prediction History</span>
-        </h2>
-
-        {history.length === 0 ? (
-          <p className="text-xs text-slate-400 py-4">No prediction history recorded for this patient.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs text-left border-collapse">
-              <thead>
-                <tr className="border-b border-slate-800 text-slate-400 uppercase text-[10px]">
-                  <th className="py-3 px-4">Prediction ID</th>
-                  <th className="py-3 px-4">Date</th>
-                  <th className="py-3 px-4">Result</th>
-                  <th className="py-3 px-4">Model</th>
-                  <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4 text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800/80">
-                {history.map(pred => (
-                  <tr key={pred.id} className="hover:bg-slate-900/50 transition-colors">
-                    <td className="py-3.5 px-4 font-mono font-bold text-teal-400">{pred.id}</td>
-                    <td className="py-3.5 px-4 text-slate-300 font-mono">{pred.date}</td>
-                    <td className="py-3.5 px-4">
-                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold border ${
-                        pred.result === 'CKD'
-                          ? 'bg-rose-500/20 text-rose-400 border-rose-500/30'
-                          : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
-                      }`}>
-                        {pred.result}
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-4 text-slate-300">{pred.model || 'Random Forest v2.4 (Ensemble)'}</td>
-                    <td className="py-3.5 px-4">
-                      <span className="px-2 py-0.5 rounded bg-sky-500/10 text-sky-400 border border-sky-500/20 text-[10px] font-semibold">
-                        {pred.status || 'Reviewed'}
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-4 text-right">
-                      <button
-                        onClick={() => handleViewPredictionDetails(pred)}
-                        className="px-3.5 py-1.5 rounded-lg bg-teal-500/10 hover:bg-teal-500/20 text-teal-400 border border-teal-500/30 font-bold text-xs transition-all flex items-center space-x-1 ml-auto"
-                      >
-                        <Eye className="w-3.5 h-3.5" />
-                        <span>View Prediction</span>
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+    <div className="stack-lg">
+      <PageHeader
+        title={`Patient ${patient.patient_id}`}
+        subtitle="Patient details, prediction history and reports."
+        actions={(
+          <>
+            <button className="btn btn-ghost" onClick={() => onNavigate('/doctor/patients')}><ArrowLeft /> All patients</button>
+            <button className="btn btn-primary" onClick={() => onNavigate(`/doctor/predictions/${patient.id}`)}><PlusCircle /> New Prediction</button>
+          </>
         )}
+      />
+
+      <div className="grid-4">
+        <StatCard featured label="Predictions" value={list.length} sub="Saved for this patient" icon={Activity} loading={predictions.loading} />
+        <StatCard label="CKD Risk Results" value={split.risk} sub={`${split.noRisk} with no CKD risk`} icon={ShieldAlert} tone="red" loading={predictions.loading} />
+        <StatCard label="Reports" value={repList.length} sub="Generated PDFs" icon={FileText} tone="navy" loading={reports.loading} />
+        <StatCard label="Last Prediction" value={<span style={{ fontSize: 18 }}>{list[0] ? formatDate(list[0].created_at) : '—'}</span>} icon={History} tone="blue" loading={predictions.loading} />
       </div>
 
-      {/* Prediction Details Modal */}
-      {selectedPredictionModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
-          <div className="relative w-full max-w-4xl bg-slate-950 border border-slate-800 rounded-3xl p-6 space-y-4 my-8">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-              <h3 className="text-lg font-bold text-white">Prediction Details Breakdown</h3>
-              <button
-                onClick={() => setSelectedPredictionModal(null)}
-                className="p-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-white"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+      <div className="grid-main-side">
+        <Card title="Model probability over time" subtitle="CKD-risk probability (%) for each saved prediction" icon={Activity}>
+          {probTrend.length ? <TrendChart data={probTrend} valueLabel="Probability %" color="#2563eb" /> : <p className="muted small">No predictions for this patient yet.</p>}
+        </Card>
+        <Card title="Patient record" icon={IdCard}>
+          <dl className="kv">
+            <dt>Patient ID</dt><dd className="mono">{patient.patient_id}</dd>
+            <dt>Record no.</dt><dd className="mono">{patient.id}</dd>
+            <dt>Gender</dt><dd>{patient.gender || '—'}</dd>
+            <dt>Date of birth</dt><dd>{formatDate(patient.date_of_birth)}</dd>
+            <dt>Registered</dt><dd>{formatDate(patient.created_at)}</dd>
+          </dl>
+        </Card>
+      </div>
 
-            <PredictionResultView
-              predictionResult={selectedPredictionModal}
-              currentUser={{ name: patient.name, role: 'doctor' }}
-              onBackToForm={() => setSelectedPredictionModal(null)}
-            />
-          </div>
-        </div>
-      )}
+      <Card title="Prediction history" icon={History} noBody>
+        <PredictionsTable
+          predictions={list}
+          onView={(p) => onNavigate(`/doctor/result/${p.id}`)}
+          emptyAction={<button className="btn btn-primary" onClick={() => onNavigate(`/doctor/predictions/${patient.id}`)}><PlusCircle /> Run prediction</button>}
+        />
+      </Card>
 
+      <Card title="Medical reports" icon={FileText} noBody>
+        <ReportsTable reports={repList} onViewPrediction={(id) => onNavigate(`/doctor/result/${id}`)} />
+      </Card>
+
+      <Disclaimer />
     </div>
   );
 }

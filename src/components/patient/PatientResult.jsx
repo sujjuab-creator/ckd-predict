@@ -1,83 +1,69 @@
 import React from 'react';
-import StatusBadge from './StatusBadge';
-import MedicalDisclaimer from './MedicalDisclaimer';
-import { PlusCircle, History, LayoutDashboard } from 'lucide-react';
+import { PlusCircle, Gauge } from 'lucide-react';
+import { PageHeader, Loading, ErrorState, Card, EmptyState } from '../ui/UI';
+import PredictionResult from '../prediction/PredictionResult';
+import { normalizePrediction, formatDate } from '../../utils/format';
 
-export default function PatientResult({ onNavigate, latestPrediction }) {
-  let record = latestPrediction;
-  if (!record) {
-    try {
-      const saved = sessionStorage.getItem('ckd_latest_prediction');
-      if (saved) record = JSON.parse(saved);
-    } catch {}
+/** Results & SHAP for one of the patient's own saved predictions. */
+export default function PatientResult({ onNavigate, record, predictions, reports, reload, predictionId }) {
+  if (predictions.loading || record.loading) return <Loading label="Loading your results…" />;
+  if (predictions.error) return <ErrorState message={predictions.error} onRetry={reload} />;
+
+  const list = predictions.list;
+  const selected = predictionId
+    ? list.find((p) => Number(p.id) === Number(predictionId))
+    : list[0];
+
+  const header = (
+    <PageHeader
+      title="Results"
+      subtitle="Your prediction result, SHAP explanation and medical report."
+      actions={(
+        <>
+          {list.length > 1 && (
+            <select
+              className="select"
+              style={{ width: 'auto', minWidth: 240 }}
+              value={selected?.id || ''}
+              onChange={(e) => onNavigate(`/patient/result/${e.target.value}`)}
+              aria-label="Select prediction"
+            >
+              {list.map((p) => {
+                const n = normalizePrediction(p);
+                return <option key={n.id} value={n.id}>{n.code} · {formatDate(n.createdAt)} · {n.label}</option>;
+              })}
+            </select>
+          )}
+          <button className="btn btn-primary" onClick={() => onNavigate('/patient/prediction')} disabled={!record.patient}>
+            <PlusCircle /> New Prediction
+          </button>
+        </>
+      )}
+    />
+  );
+
+  if (!selected) {
+    return (
+      <div className="stack-lg">
+        {header}
+        <Card>
+          <EmptyState
+            icon={Gauge}
+            title={predictionId ? 'Prediction not found' : 'No results yet'}
+            message={predictionId ? 'This prediction does not belong to your record or no longer exists.' : 'Run a CKD risk prediction to see your result and its explanation here.'}
+            action={record.patient && <button className="btn btn-primary" onClick={() => onNavigate('/patient/prediction')}><PlusCircle /> Start prediction</button>}
+          />
+        </Card>
+      </div>
+    );
   }
 
-  if (!record) {
-    record = {
-      id: 'PRED-101',
-      date: new Date().toISOString().split('T')[0],
-      result: 'High Risk',
-      model: 'RandomForest Classifier'
-    };
-  }
+  const report = reports.list.find((r) => Number(r.prediction_id) === Number(selected.id));
 
   return (
-    <div className="max-w-3xl mx-auto space-y-8">
-      
-      {/* Header */}
-      <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-slate-800 text-center space-y-4 glow-cyan">
-        <div className="inline-flex items-center space-x-2">
-          <StatusBadge type="clinical-prediction" text="CLINICAL PREDICTION" />
-        </div>
-
-        <h1 className="text-3xl font-extrabold text-white">CKD Prediction Result</h1>
-        <p className="text-xs text-slate-400">Generated on {record.date || new Date().toISOString().split('T')[0]}</p>
-
-        {/* Big Result Card */}
-        <div className="bg-slate-950/80 p-8 rounded-2xl border border-slate-800 space-y-3 my-4">
-          <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Prediction Outcome</span>
-          <p className="text-4xl sm:text-5xl font-black text-rose-400 font-mono">
-            {record.result || 'High Risk'}
-          </p>
-          <div className="flex justify-center items-center space-x-3 text-xs pt-2">
-            <span className="text-slate-400">Model: <strong className="text-slate-200">{record.model || 'RandomForest Classifier'}</strong></span>
-            <span className="text-slate-600">•</span>
-            <span className="text-slate-400">ID: <strong className="text-slate-200 font-mono">{record.id}</strong></span>
-          </div>
-        </div>
-      </div>
-
-      {/* Medical Disclaimer */}
-      <MedicalDisclaimer />
-
-      {/* Navigation Action Buttons */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <button
-          onClick={() => onNavigate('/patient/history')}
-          className="py-3 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800 font-semibold text-xs transition-all flex items-center justify-center space-x-2"
-        >
-          <History className="w-4 h-4 text-sky-400" />
-          <span>View History</span>
-        </button>
-
-        <button
-          onClick={() => onNavigate('/patient/prediction')}
-          className="py-3 px-4 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-xs transition-all shadow-md shadow-sky-500/20 flex items-center justify-center space-x-2"
-        >
-          <PlusCircle className="w-4 h-4" />
-          <span>New Prediction</span>
-        </button>
-
-        <button
-          onClick={() => onNavigate('/patient')}
-          className="py-3 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800 font-semibold text-xs transition-all flex items-center justify-center space-x-2"
-        >
-          <LayoutDashboard className="w-4 h-4 text-teal-400" />
-          <span>Dashboard</span>
-        </button>
-      </div>
-
+    <div className="stack-lg">
+      {header}
+      <PredictionResult key={selected.id} prediction={selected} existingReportId={report?.report_id || null} />
     </div>
   );
 }
-

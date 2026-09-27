@@ -96,13 +96,31 @@ export function AuthProvider({ children }) {
   };
 
   /**
-   * Signup Function (Public registration disabled in hospital mode)
+   * Signup Function — calls the existing backend registration endpoint.
+   * NOTE: the current backend returns 403 (public self-registration disabled),
+   * so this surfaces the backend's message instead of pretending to succeed.
    */
-  const signup = async () => {
+  const signup = async (payload) => {
+    const res = await apiService.register(payload);
+    if (res.ok && res.data?.success) {
+      return { success: true, message: res.data.message };
+    }
     return {
       success: false,
-      error: 'Public self-registration is disabled. Patient and Doctor accounts must be created by the Hospital Administrator.'
+      status: res.status,
+      error: res.data?.error || 'Registration failed. Please try again later.',
     };
+  };
+
+  /**
+   * Update the stored session user (e.g. after a password change) without
+   * touching the token or the backend authentication mechanism.
+   */
+  const updateCurrentUser = (patch) => {
+    if (!currentUser) return;
+    const next = { ...currentUser, ...patch };
+    setCurrentUser(next);
+    try { sessionStorage.setItem('ckd_session', JSON.stringify(next)); } catch { /* ignore */ }
   };
 
   /**
@@ -118,7 +136,8 @@ export function AuthProvider({ children }) {
       backendAvailable,
       login,
       signup,
-      logout
+      logout,
+      updateCurrentUser
     }}>
       {children}
     </AuthContext.Provider>

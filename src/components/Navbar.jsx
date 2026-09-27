@@ -1,128 +1,144 @@
-import React from 'react';
-import { Activity, ShieldCheck, UserCheck, Stethoscope, LogOut, ChevronRight, Sparkles } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Menu, X, LayoutDashboard, LogOut } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import Logo from './brand/Logo';
+
+// Public navigation. Section links scroll within the Home page using
+// element.scrollIntoView so the hash-based router (#/...) is never disturbed.
+export const PUBLIC_SECTIONS = [
+  { id: 'home', label: 'Home' },
+  { id: 'about', label: 'About CKD' },
+  { id: 'features', label: 'Features' },
+  { id: 'how-it-works', label: 'How It Works' },
+  { id: 'faq', label: 'FAQ' },
+  { id: 'contact', label: 'Contact' },
+];
+
+export function scrollToSection(id, currentPath, onNavigate) {
+  const go = () => {
+    if (id === 'home') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    const el = document.getElementById(id);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+  if (currentPath !== '/') {
+    onNavigate('/');
+    setTimeout(go, 80);
+  } else {
+    // Defer so layout changes (e.g. closing the mobile menu) settle first
+    setTimeout(go, 30);
+  }
+}
 
 export default function Navbar({ currentPath, onNavigate }) {
   const { currentUser, logout } = useAuth();
+  const [open, setOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  const [activeId, setActiveId] = useState('home');
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 8);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  // Highlight the section currently in view on the Home page
+  useEffect(() => {
+    if (currentPath !== '/' || typeof IntersectionObserver === 'undefined') return undefined;
+    const els = PUBLIC_SECTIONS.map((s) => document.getElementById(s.id)).filter(Boolean);
+    const obs = new IntersectionObserver(
+      (entries) => {
+        const visible = entries.filter((e) => e.isIntersecting).sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+        if (visible) setActiveId(visible.target.id === 'stages' || visible.target.id === 'prevention' ? 'about' : visible.target.id);
+      },
+      { rootMargin: '-40% 0px -55% 0px', threshold: [0, 0.25, 0.5] },
+    );
+    els.forEach((el) => obs.observe(el));
+    ['stages', 'prevention'].forEach((id) => { const el = document.getElementById(id); if (el) obs.observe(el); });
+    return () => obs.disconnect();
+  }, [currentPath]);
+
+  const go = (id) => {
+    setOpen(false);
+    setActiveId(id);
+    scrollToSection(id, currentPath, onNavigate);
+  };
+
+  const loggedIn = Boolean(currentUser?.loggedIn);
+  const dashboardPath = loggedIn ? `/${currentUser.role}` : '/login';
 
   const handleLogout = () => {
     logout();
-    onNavigate('/login');
+    setOpen(false);
+    onNavigate('/');
   };
 
   return (
-    <header className="sticky top-0 z-50 glass-panel border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-xl">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-20">
-          
-          {/* Logo & Brand */}
-          <div 
-            className="flex items-center space-x-3 cursor-pointer group"
-            onClick={() => onNavigate('/')}
-          >
-            <div className="relative">
-              <div className="w-11 h-11 rounded-xl bg-gradient-to-tr from-sky-500 via-indigo-500 to-teal-400 p-[2px] transition-transform group-hover:scale-105 duration-300">
-                <div className="w-full h-full bg-slate-950 rounded-[10px] flex items-center justify-center">
-                  <Activity className="w-6 h-6 text-sky-400 animate-pulse-subtle" />
-                </div>
-              </div>
-              <div className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-400 rounded-full border-2 border-slate-950"></div>
-            </div>
-            <div>
-              <div className="flex items-center space-x-1.5">
-                <span className="text-xl font-extrabold tracking-tight text-white font-mono">CKD</span>
-                <span className="text-xl font-extrabold tracking-tight gradient-text font-mono">PREDICT</span>
-              </div>
-              <p className="text-xs text-slate-400 font-medium">Chronic Kidney Disease Prediction System</p>
-            </div>
-          </div>
+    <header className={`site-header ${scrolled || open ? 'scrolled' : ''}`}>
+      <div className="container site-nav">
+        <Logo onClick={() => go('home')} />
 
-          {/* Navigation Links */}
-          <nav className="hidden md:flex items-center space-x-1">
+        <nav className="nav-links" aria-label="Main">
+          {PUBLIC_SECTIONS.map((s) => (
             <button
-              onClick={() => onNavigate('/')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                currentPath === '/' || currentPath === '' 
-                  ? 'bg-sky-500/10 text-sky-400 border border-sky-500/30 shadow-sm' 
-                  : 'text-slate-300 hover:text-white hover:bg-slate-800/50'
-              }`}
+              key={s.id}
+              type="button"
+              className={currentPath === '/' && activeId === s.id ? 'active' : ''}
+              onClick={() => go(s.id)}
             >
-              Home
+              {s.label}
             </button>
+          ))}
+        </nav>
 
-            {currentUser && (
-              <button
-                onClick={() => onNavigate(`/${currentUser.role}`)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center space-x-2 ${
-                  currentPath.startsWith('/patient') || currentPath.startsWith('/doctor') || currentPath.startsWith('/admin')
-                    ? 'bg-sky-500/10 text-sky-400 border border-sky-500/30 shadow-sm' 
-                    : 'text-slate-300 hover:text-white hover:bg-slate-800/50'
-                }`}
-              >
-                <span>Dashboard</span>
-                <span className="capitalize text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
-                  {currentUser.role}
-                </span>
+        <div className="nav-actions">
+          {loggedIn ? (
+            <>
+              <button className="btn btn-ghost desktop-only" onClick={handleLogout}>
+                <LogOut /> Logout
               </button>
-            )}
+              <button className="btn btn-primary desktop-only" onClick={() => onNavigate(dashboardPath)}>
+                <LayoutDashboard /> My Dashboard
+              </button>
+            </>
+          ) : (
+            <>
+              <button className="btn btn-ghost desktop-only" onClick={() => onNavigate('/login')}>Login</button>
+              <button className="btn btn-primary desktop-only" onClick={() => onNavigate('/login')}>Get Started</button>
+            </>
+          )}
+          <button
+            className="icon-btn nav-toggle"
+            onClick={() => setOpen((v) => !v)}
+            aria-label={open ? 'Close menu' : 'Open menu'}
+            aria-expanded={open}
+          >
+            {open ? <X /> : <Menu />}
+          </button>
+        </div>
+      </div>
 
-            <button
-              onClick={() => onNavigate('/assessment')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center space-x-2 ${
-                currentPath === '/assessment'
-                  ? 'bg-sky-500/10 text-sky-400 border border-sky-500/30'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-800/50'
-              }`}
-            >
-              <Sparkles className="w-4 h-4 text-teal-400" />
-              <span>CKD Prediction</span>
-            </button>
-          </nav>
-
-          {/* Auth Actions */}
-          <div className="flex items-center space-x-3">
-
-            {currentUser && currentUser.loggedIn ? (
-              <div className="flex items-center space-x-3 border-l border-slate-800 pl-3">
-                <div className="flex items-center space-x-2">
-                  <img
-                    src={currentUser.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
-                    alt={currentUser.name}
-                    className="w-9 h-9 rounded-full object-cover border-2 border-sky-500/40"
-                  />
-                  <div className="hidden sm:block text-left">
-                    <p className="text-xs font-semibold text-slate-200 truncate max-w-[120px]">{currentUser.name}</p>
-                    <p className="text-[10px] text-slate-400 capitalize">{currentUser.role}</p>
-                  </div>
-                </div>
-
-                <button
-                  onClick={handleLogout}
-                  title="Logout"
-                  className="p-2 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors"
-                >
-                  <LogOut className="w-4 h-4" />
-                </button>
-              </div>
+      <div className={`mobile-menu ${open ? 'open' : ''}`}>
+        <div className="container">
+          {PUBLIC_SECTIONS.map((s) => (
+            <button key={s.id} className="item" onClick={() => go(s.id)}>{s.label}</button>
+          ))}
+          <div className="mobile-actions">
+            {loggedIn ? (
+              <>
+                <button className="btn btn-ghost" onClick={handleLogout}>Logout</button>
+                <button className="btn btn-primary" onClick={() => { setOpen(false); onNavigate(dashboardPath); }}>Dashboard</button>
+              </>
             ) : (
-              <div className="flex items-center space-x-2">
-                <button
-                  onClick={() => onNavigate('/login')}
-                  className="px-4 py-2 rounded-xl text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
-                >
-                  Sign In
-                </button>
-                <button
-                  onClick={() => onNavigate('/signup')}
-                  className="px-4 py-2 rounded-xl text-sm font-semibold bg-gradient-to-r from-sky-500 to-indigo-600 text-white hover:from-sky-400 hover:to-indigo-500 shadow-lg shadow-sky-500/20 transition-all flex items-center space-x-1"
-                >
-                  <span>Get Started</span>
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
+              <>
+                <button className="btn btn-ghost" onClick={() => { setOpen(false); onNavigate('/login'); }}>Login</button>
+                <button className="btn btn-primary" onClick={() => { setOpen(false); onNavigate('/login'); }}>Get Started</button>
+              </>
             )}
           </div>
-
         </div>
       </div>
     </header>

@@ -11,6 +11,10 @@ if backend_dir not in sys.path:
     sys.path.insert(0, backend_dir)
 
 import unittest
+import secrets
+
+# Test-only admin password generated per run (there is no default admin password)
+TEST_ADMIN_PASSWORD = 'Test-Admin-' + secrets.token_hex(8)
 import json
 from app import create_app
 from extensions import db
@@ -30,14 +34,14 @@ class AuthenticationWorkflowTestCase(unittest.TestCase):
                 admin = User(
                     name='System Administrator',
                     email='admin@ckdpredict.com',
-                    password_hash=hash_password('admin123'),
+                    password_hash=hash_password(TEST_ADMIN_PASSWORD),
                     role='admin',
                     status='Active',
                     is_temporary_password=False
                 )
                 db.session.add(admin)
             else:
-                admin.password_hash = hash_password('admin123')
+                admin.password_hash = hash_password(TEST_ADMIN_PASSWORD)
                 admin.status = 'Active'
             db.session.commit()
 
@@ -46,8 +50,8 @@ class AuthenticationWorkflowTestCase(unittest.TestCase):
             db.session.remove()
             db.drop_all()
 
-    def test_01_public_signup_disabled(self):
-        """Verify public registration returns 403 Forbidden"""
+    def test_01_public_signup_requires_verification(self):
+        """Public registration without a verified email OTP is rejected (403); admin can never self-register"""
         res = self.client.post('/api/auth/register', json={
             'name': 'Self Register User',
             'email': 'public.user@example.com',
@@ -57,13 +61,22 @@ class AuthenticationWorkflowTestCase(unittest.TestCase):
         self.assertEqual(res.status_code, 403)
         data = json.loads(res.data)
         self.assertFalse(data['success'])
-        self.assertIn('disabled', data['error'].lower())
+        self.assertEqual(data.get('code'), 'verification_required')
+
+        admin_res = self.client.post('/api/auth/register', json={
+            'name': 'Another Admin',
+            'email': 'another.admin@example.com',
+            'password': 'password123',
+            'role': 'admin'
+        })
+        self.assertEqual(admin_res.status_code, 403)
+        self.assertIn('admin', json.loads(admin_res.data)['error'].lower())
 
     def test_02_admin_login_success(self):
         """Verify Admin login issues token and user payload"""
         res = self.client.post('/api/auth/login', json={
             'email': 'admin@ckdpredict.com',
-            'password': 'admin123',
+            'password': TEST_ADMIN_PASSWORD,
             'role': 'admin'
         })
         self.assertEqual(res.status_code, 200)
@@ -77,7 +90,7 @@ class AuthenticationWorkflowTestCase(unittest.TestCase):
         # Admin login
         login_res = self.client.post('/api/auth/login', json={
             'email': 'admin@ckdpredict.com',
-            'password': 'admin123'
+            'password': TEST_ADMIN_PASSWORD
         })
         token = json.loads(login_res.data)['token']
         headers = {'Authorization': f'Bearer {token}'}
@@ -128,7 +141,7 @@ class AuthenticationWorkflowTestCase(unittest.TestCase):
         """Verify backend prevents creating a second Admin account"""
         login_res = self.client.post('/api/auth/login', json={
             'email': 'admin@ckdpredict.com',
-            'password': 'admin123'
+            'password': TEST_ADMIN_PASSWORD
         })
         token = json.loads(login_res.data)['token']
         headers = {'Authorization': f'Bearer {token}'}
@@ -136,7 +149,7 @@ class AuthenticationWorkflowTestCase(unittest.TestCase):
         res = self.client.post('/api/admin/users', headers=headers, json={
             'name': 'Second Admin',
             'email': 'admin2@ckdpredict.com',
-            'password': 'admin123password',
+            'password': 'SecondAdmin-Pass1',
             'role': 'admin'
         })
         self.assertEqual(res.status_code, 400)
@@ -148,7 +161,7 @@ class AuthenticationWorkflowTestCase(unittest.TestCase):
         """Verify duplicate email across roles is rejected with 409 Conflict"""
         login_res = self.client.post('/api/auth/login', json={
             'email': 'admin@ckdpredict.com',
-            'password': 'admin123'
+            'password': TEST_ADMIN_PASSWORD
         })
         token = json.loads(login_res.data)['token']
         headers = {'Authorization': f'Bearer {token}'}
@@ -177,7 +190,7 @@ class AuthenticationWorkflowTestCase(unittest.TestCase):
         """Verify Doctors and Patients cannot access Admin endpoints"""
         login_res = self.client.post('/api/auth/login', json={
             'email': 'admin@ckdpredict.com',
-            'password': 'admin123'
+            'password': TEST_ADMIN_PASSWORD
         })
         admin_token = json.loads(login_res.data)['token']
 

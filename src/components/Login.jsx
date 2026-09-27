@@ -1,16 +1,57 @@
 import React, { useState } from 'react';
-import { UserCheck, Stethoscope, ShieldCheck, Lock, Mail, Activity, AlertCircle, ArrowLeft } from 'lucide-react';
+import {
+  UserRound, Stethoscope, ShieldCheck, Lock, Mail, ArrowLeft, Eye, EyeOff, Loader2, Sparkles, Brain, FileText,
+} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import ForgotPasswordModal from './ForgotPasswordModal';
+import KidneyIllustration from './brand/KidneyIllustration';
+import { Alert } from './ui/UI';
+
+const ROLES = [
+  { id: 'patient', label: 'Patient', icon: UserRound },
+  { id: 'doctor', label: 'Doctor', icon: Stethoscope },
+  { id: 'admin', label: 'Admin', icon: ShieldCheck },
+];
+
+const COPY = {
+  patient: { title: 'Patient Sign In', sub: 'Access your CKD risk predictions, history and reports.', email: 'Gmail', password: 'Password', button: 'Sign In' },
+  doctor: { title: 'Doctor Sign In', sub: 'Review patient predictions, explanations and reports.', email: 'Gmail', password: 'Password', button: 'Sign In' },
+  admin: { title: 'Administrator Sign In', sub: 'Restricted access for the system administrator.', email: 'Admin Gmail', password: 'Admin Password', button: 'Admin Sign In' },
+};
+
+export function AuthAside({ title, text }) {
+  return (
+    <aside className="auth-aside">
+      <div style={{ position: 'relative', zIndex: 1 }}>
+        <span className="badge" style={{ background: 'rgba(16,185,129,.15)', color: '#6ee7b7', borderColor: 'rgba(16,185,129,.3)' }}>
+          <Sparkles /> AI-assisted CKD risk prediction
+        </span>
+        <h2>{title}</h2>
+        <p>{text}</p>
+        <ul className="auth-points">
+          <li><span className="ic"><Brain /></span>Machine-learning risk prediction</li>
+          <li><span className="ic"><Sparkles /></span>Explainable SHAP factor analysis</li>
+          <li><span className="ic"><FileText /></span>Downloadable PDF medical reports</li>
+          <li><span className="ic"><ShieldCheck /></span>Role-based secure access</li>
+        </ul>
+      </div>
+      <div className="kidney-wrap"><KidneyIllustration showOrbit={false} showLeaves={false} /></div>
+    </aside>
+  );
+}
 
 export default function Login({ onNavigate, initialRole = 'patient' }) {
   const { login } = useAuth();
-  
+
   const [role, setRole] = useState(initialRole);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
   const [isForgotModalOpen, setIsForgotModalOpen] = useState(false);
+
+  const copy = COPY[role];
 
   const handleRoleChange = (newRole) => {
     setRole(newRole);
@@ -20,161 +61,119 @@ export default function Login({ onNavigate, initialRole = 'patient' }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-
-    const res = await login(email, password, role);
-    if (res.success) {
-      onNavigate(res.redirectPath.substring(1)); // Navigate to 'patient', 'doctor', or 'admin'
-    } else {
-      setError(res.error);
+    setSubmitting(true);
+    try {
+      const res = await login(email, password, role);
+      if (res.success) {
+        onNavigate(res.redirectPath);
+      } else {
+        setError(res.error);
+      }
+    } finally {
+      setSubmitting(false);
     }
   };
 
   return (
-    <div className="max-w-md mx-auto my-8 px-4">
-      <div className="glass-panel rounded-3xl p-8 border border-slate-800 space-y-6 glow-cyan">
-        
-        {/* Header & Back to Home */}
-        <div className="flex items-center justify-between">
-          <button
-            onClick={() => onNavigate('home')}
-            className="text-xs text-slate-400 hover:text-sky-400 transition-colors flex items-center space-x-1 font-medium"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Back to Home</span>
+    <div className="auth-page">
+      <AuthAside
+        title="Welcome back"
+        text="Sign in to access the CKD risk prediction system and your role-based dashboard."
+      />
+
+      <div className="auth-main">
+        <div className="auth-card">
+          <button className="back-link" onClick={() => onNavigate('/')}>
+            <ArrowLeft /> Back to Home
           </button>
-        </div>
 
-        <div className="text-center space-y-2">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-sky-500/10 border border-sky-500/30 text-sky-400 mb-1">
-            <Activity className="w-6 h-6 animate-pulse-subtle" />
-          </div>
-          <h2 className="text-2xl font-bold text-white">Sign In to CKD PREDICT</h2>
-          <p className="text-xs text-slate-400">Chronic Kidney Disease Prediction System</p>
-        </div>
+          <h1>{copy.title}</h1>
+          <p className="sub">{copy.sub}</p>
 
-        {/* Role Selector Tabs */}
-        <div>
-          <label className="block text-slate-300 text-xs font-semibold mb-1.5">Select Account Role</label>
-          <div className="grid grid-cols-3 gap-1 bg-slate-900 p-1 rounded-xl border border-slate-800 text-xs">
-            <button
-              type="button"
-              onClick={() => handleRoleChange('patient')}
-              className={`py-2 rounded-lg font-semibold flex items-center justify-center space-x-1 transition-all ${
-                role === 'patient' ? 'bg-sky-500 text-slate-950 shadow' : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <UserCheck className="w-3.5 h-3.5" />
-              <span>Patient</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleRoleChange('doctor')}
-              className={`py-2 rounded-lg font-semibold flex items-center justify-center space-x-1 transition-all ${
-                role === 'doctor' ? 'bg-teal-500 text-slate-950 shadow' : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <Stethoscope className="w-3.5 h-3.5" />
-              <span>Doctor</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleRoleChange('admin')}
-              className={`py-2 rounded-lg font-semibold flex items-center justify-center space-x-1 transition-all ${
-                role === 'admin' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <ShieldCheck className="w-3.5 h-3.5" />
-              <span>Admin</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Error Alert Box */}
-        {error && (
-          <div className="bg-rose-500/10 border border-rose-500/30 p-3 rounded-xl text-rose-400 text-xs flex items-center space-x-2">
-            <AlertCircle className="w-4 h-4 shrink-0" />
-            <span>{error}</span>
-          </div>
-        )}
-
-        {/* Auth Form */}
-        <form onSubmit={handleSubmit} className="space-y-4 text-xs">
-          <div>
-            <label className="block text-slate-300 font-medium mb-1">Email Address</label>
-            <div className="relative">
-              <Mail className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full pl-9 pr-3 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-slate-200 focus:outline-none focus:border-sky-500 transition-colors"
-                placeholder="name@hospital.org"
-              />
-            </div>
-          </div>
-
-          <div>
-            <div className="flex justify-between items-center mb-1">
-              <label className="text-slate-300 font-medium">Password</label>
+          <div className="segmented" role="tablist" aria-label="Account type" style={{ marginBottom: 22 }}>
+            {ROLES.map((r) => (
               <button
+                key={r.id}
                 type="button"
-                onClick={() => setIsForgotModalOpen(true)}
-                className="text-[11px] text-sky-400 hover:underline"
+                role="tab"
+                aria-selected={role === r.id}
+                className={role === r.id ? 'active' : ''}
+                onClick={() => handleRoleChange(r.id)}
               >
-                Forgot Password?
+                <r.icon /> {r.label}
               </button>
-            </div>
-            <div className="relative">
-              <Lock className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
-              <input
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full pl-9 pr-3 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-slate-200 focus:outline-none focus:border-sky-500 transition-colors"
-                placeholder="••••••••"
-              />
-            </div>
+            ))}
           </div>
 
-          <div className="pt-2 space-y-2">
-            <button
-              type="submit"
-              className="w-full py-3 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold text-sm shadow-lg shadow-sky-500/20 transition-all"
-            >
-              Sign In as {role.toUpperCase()}
-            </button>
+          {error && <Alert type="error" className="mt-8">{error}</Alert>}
 
-            <button
-              type="button"
-              onClick={() => onNavigate('home')}
-              className="w-full py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-400 text-xs font-semibold border border-slate-800 transition-all"
-            >
-              Back to Home
+          <form onSubmit={handleSubmit} className="stack" style={{ marginTop: error ? 16 : 0 }} noValidate>
+            <div className="field">
+              <label className="label" htmlFor="login-email">{copy.email}</label>
+              <div className="input-icon">
+                <Mail />
+                <input
+                  id="login-email"
+                  className="input"
+                  type="email"
+                  autoComplete="username"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="name@gmail.com"
+                />
+              </div>
+            </div>
+
+            <div className="field">
+              <label className="label" htmlFor="login-password">{copy.password}</label>
+              <div className="input-icon">
+                <Lock />
+                <input
+                  id="login-password"
+                  className="input"
+                  type={showPw ? 'text' : 'password'}
+                  autoComplete="current-password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter your password"
+                  style={{ paddingRight: 44 }}
+                />
+                <button type="button" className="toggle" onClick={() => setShowPw((v) => !v)} aria-label={showPw ? 'Hide password' : 'Show password'}>
+                  {showPw ? <EyeOff /> : <Eye />}
+                </button>
+              </div>
+            </div>
+
+            {role === 'patient' && (
+              <div className="auth-links">
+                <span />
+                <button type="button" className="link" onClick={() => setIsForgotModalOpen(true)}>Forgot Password?</button>
+              </div>
+            )}
+
+            <button type="submit" className={`btn btn-lg btn-block ${role === 'admin' ? 'btn-navy' : 'btn-primary'}`} disabled={submitting}>
+              {submitting ? <Loader2 className="spin" /> : <Lock />}
+              {submitting ? 'Signing in…' : copy.button}
             </button>
+          </form>
+
+          <div className="auth-foot">
+            {role === 'patient' && (
+              <>New Patient? <button className="link" onClick={() => onNavigate('/signup/patient')}>Sign Up</button></>
+            )}
+            {role === 'doctor' && (
+              <>New Doctor? <button className="link" onClick={() => onNavigate('/signup/doctor')}>Sign Up</button></>
+            )}
+            {role === 'admin' && (
+              <span>Administrator credentials are configured securely on the server. There is no public admin registration.</span>
+            )}
           </div>
-        </form>
-
-        <div className="text-center text-xs text-slate-400 pt-2 border-t border-slate-800 space-y-1">
-          <p className="text-[11px] text-slate-400 font-medium">
-            Account registration is managed by Hospital Administration.
-          </p>
-          <p className="text-[10px] text-slate-500">
-            Please contact your System Administrator for access credentials.
-          </p>
         </div>
-
       </div>
 
-      {/* Forgot Password Modal */}
-      <ForgotPasswordModal
-        isOpen={isForgotModalOpen}
-        onClose={() => setIsForgotModalOpen(false)}
-      />
+      <ForgotPasswordModal isOpen={isForgotModalOpen} onClose={() => setIsForgotModalOpen(false)} />
     </div>
   );
 }
-

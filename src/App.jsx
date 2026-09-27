@@ -1,18 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import Home from './components/Home';
 import Login from './components/Login';
 import Signup from './components/Signup';
+import ResetPassword from './components/ResetPassword';
 import PatientDashboard from './components/PatientDashboard/PatientDashboard';
 import DoctorDashboard from './components/DoctorDashboard/DoctorDashboard';
 import AdminDashboard from './components/AdminDashboard/AdminDashboard';
-import CKDForm from './components/CKDForm';
-import PredictionResultView from './components/PredictionResultView';
-import PdfReportModal from './components/PdfReportModal';
-import { predictCKD } from './utils/ckdPredictor';
 
+// ---------------------------------------------------------------------------
+// HASH ROUTING (required for the Render Static Site deployment).
+// Paths live after "#", e.g. #/login, #/patient/history, #/doctor/patients.
+// Do not replace with BrowserRouter.
+// ---------------------------------------------------------------------------
 function getHashPath() {
   const hash = window.location.hash;
   if (!hash || hash === '#' || hash === '#/') return '/';
@@ -21,15 +23,13 @@ function getHashPath() {
   return path;
 }
 
+const ROLE_PREFIXES = ['patient', 'doctor', 'admin'];
+
 function MainApp() {
   const { currentUser } = useAuth();
   const [currentPath, setCurrentPath] = useState(getHashPath);
 
-  // Active Standalone Assessment Prediction Result
-  const [activeAssessmentResult, setActiveAssessmentResult] = useState(null);
-  const [showPdfReport, setShowPdfReport] = useState(false);
-
-  // Sync Hash changes & browser back/forward buttons
+  // Sync hash changes & browser back/forward buttons
   useEffect(() => {
     const handleHashChange = () => {
       setCurrentPath(getHashPath());
@@ -49,26 +49,7 @@ function MainApp() {
     };
   }, []);
 
-  // Protected Route Guard
-  useEffect(() => {
-    const path = currentPath.toLowerCase();
-
-    if (path.startsWith('/patient')) {
-      if (!currentUser || !currentUser.loggedIn || currentUser.role !== 'patient') {
-        navigateTo('/login');
-      }
-    } else if (path.startsWith('/doctor')) {
-      if (!currentUser || !currentUser.loggedIn || currentUser.role !== 'doctor') {
-        navigateTo('/login');
-      }
-    } else if (path.startsWith('/admin')) {
-      if (!currentUser || !currentUser.loggedIn || currentUser.role !== 'admin') {
-        navigateTo('/login');
-      }
-    }
-  }, [currentPath, currentUser]);
-
-  const navigateTo = (targetPath) => {
+  const navigateTo = useCallback((targetPath) => {
     if (!targetPath) return;
     let cleanPath = targetPath;
     if (cleanPath.startsWith('#')) {
@@ -77,129 +58,76 @@ function MainApp() {
     if (!cleanPath.startsWith('/')) {
       cleanPath = '/' + cleanPath;
     }
+    if (cleanPath === '/home') cleanPath = '/';
 
     if (window.location.hash !== `#${cleanPath}`) {
       window.location.hash = cleanPath;
     }
     setCurrentPath(cleanPath);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  }, []);
 
-  const handleAssessmentSubmit = (formData) => {
-    const result = predictCKD(formData);
-    setActiveAssessmentResult(result);
-    navigateTo('/assessment-result');
-  };
-
-  // Determine view component to render
-  const renderView = () => {
+  // Protected Route Guard
+  // - Unauthenticated users are sent to #/login
+  // - Signed-in users who open another role's dashboard are sent to their own
+  useEffect(() => {
     const path = currentPath.toLowerCase();
+    const section = path.split('/')[1];
 
-    if (path === '/login') {
-      return (
-        <Login 
-          initialRole={currentUser?.role || 'patient'}
-          onNavigate={navigateTo}
-        />
-      );
-    }
-
-    if (path === '/signup') {
-      return (
-        <Login 
-          initialRole="patient"
-          onNavigate={navigateTo}
-        />
-      );
-    }
-
-    if (path.startsWith('/patient')) {
-      if (currentUser && currentUser.loggedIn && currentUser.role === 'patient') {
-        return (
-          <PatientDashboard
-            currentPath={currentPath}
-            onNavigate={navigateTo}
-          />
-        );
+    if (ROLE_PREFIXES.includes(section)) {
+      if (!currentUser || !currentUser.loggedIn) {
+        navigateTo('/login');
+      } else if (currentUser.role !== section) {
+        navigateTo(`/${currentUser.role}`);
       }
-      return null;
     }
 
-    if (path.startsWith('/doctor')) {
-      if (currentUser && currentUser.loggedIn && currentUser.role === 'doctor') {
-        return (
-          <DoctorDashboard
-            currentUser={currentUser}
-            currentPath={currentPath}
-            onNavigate={navigateTo}
-          />
-        );
-      }
-      return null;
+    // The old public "assessment" pages exposed prediction without login.
+    // Prediction is now available only inside authenticated dashboards.
+    if (path === '/assessment' || path === '/assessment-result') {
+      navigateTo(currentUser?.loggedIn ? `/${currentUser.role}` : '/login');
     }
+  }, [currentPath, currentUser, navigateTo]);
 
-    if (path.startsWith('/admin')) {
-      if (currentUser && currentUser.loggedIn && currentUser.role === 'admin') {
-        return (
-          <AdminDashboard
-            currentUser={currentUser}
-            currentPath={currentPath}
-            onNavigate={navigateTo}
-          />
-        );
-      }
-      return null;
+  const path = currentPath.toLowerCase();
+  const section = path.split('/')[1];
+  const isDashboard = ROLE_PREFIXES.includes(section);
+
+  // Authenticated dashboards render their own full-screen layout
+  if (isDashboard) {
+    if (!currentUser || !currentUser.loggedIn || currentUser.role !== section) return null;
+    if (section === 'patient') return <PatientDashboard currentPath={currentPath} onNavigate={navigateTo} />;
+    if (section === 'doctor') return <DoctorDashboard currentUser={currentUser} currentPath={currentPath} onNavigate={navigateTo} />;
+    return <AdminDashboard currentUser={currentUser} currentPath={currentPath} onNavigate={navigateTo} />;
+  }
+
+  const renderPublicView = () => {
+    if (path === '/login' || path.startsWith('/login/')) {
+      const r = path.split('/')[2];
+      const role = ROLE_PREFIXES.includes(r) ? r : 'patient';
+      return <Login key={role} initialRole={role} onNavigate={navigateTo} />;
     }
-
-    if (path === '/assessment') {
-      return (
-        <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
-          <div className="text-center space-y-2 mb-8">
-            <h1 className="text-3xl font-extrabold text-white">CKD Risk Prediction</h1>
-            <p className="text-xs text-slate-400">Enter physiological patient data for machine learning risk prediction</p>
-          </div>
-          <CKDForm onSubmitPrediction={handleAssessmentSubmit} />
-        </div>
-      );
+    if (path === '/signup' || path.startsWith('/signup/')) {
+      const r = path.split('/')[2];
+      const role = r === 'doctor' ? 'doctor' : 'patient';
+      return <Signup key={role} role={role} onNavigate={navigateTo} />;
     }
-
-    if (path === '/assessment-result' && activeAssessmentResult) {
-      return (
-        <div className="px-4 py-6">
-          <PredictionResultView
-            predictionResult={activeAssessmentResult}
-            currentUser={currentUser}
-            onBackToForm={() => navigateTo('/assessment')}
-            onOpenPdfReport={() => setShowPdfReport(true)}
-          />
-        </div>
-      );
+    if (path.startsWith('/reset-password')) {
+      // Token is case-sensitive: read it from the original (non-lowercased) path
+      const token = decodeURIComponent(currentPath.split('/')[2] || '');
+      return <ResetPassword token={token} onNavigate={navigateTo} />;
     }
-
     // Default Home view (path '/' or unrecognized)
     return <Home onNavigate={navigateTo} />;
   };
 
+  const isAuthPage = path.startsWith('/login') || path.startsWith('/signup') || path.startsWith('/reset-password');
+
   return (
-    <div className="min-h-screen bg-[#0b0f19] text-slate-100 flex flex-col justify-between selection:bg-sky-500 selection:text-slate-950 font-sans">
-      <Navbar
-        currentPath={currentPath}
-        onNavigate={navigateTo}
-      />
-
-      <main className="flex-grow py-6">
-        {renderView()}
-      </main>
-
-      {showPdfReport && activeAssessmentResult && (
-        <PdfReportModal
-          predictionResult={activeAssessmentResult}
-          patientData={currentUser || { name: 'Anonymous Patient', mrn: 'MRN-NEW-001' }}
-          onClose={() => setShowPdfReport(false)}
-        />
-      )}
-
-      <Footer onNavigate={navigateTo} />
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <Navbar currentPath={currentPath} onNavigate={navigateTo} />
+      <main style={{ flex: 1 }}>{renderPublicView()}</main>
+      {!isAuthPage && <Footer currentPath={currentPath} onNavigate={navigateTo} />}
     </div>
   );
 }

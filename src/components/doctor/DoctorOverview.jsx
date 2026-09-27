@@ -1,242 +1,84 @@
 import React from 'react';
-import { 
-  Users, Activity, FileText, Search, Clock, ChevronRight, 
-  AlertTriangle, CheckCircle2, AlertCircle, Eye, Sparkles
+import {
+  Users, Activity, ShieldAlert, FileText, PlusCircle, Search, Sparkles, ChartBar, ArrowRight, History, Stethoscope,
 } from 'lucide-react';
-import { MOCK_PATIENTS } from '../../data/mockPatients';
-import { MOCK_PREDICTIONS } from '../../data/mockPredictions';
+import { useAuth } from '../../context/AuthContext';
+import { Card, StatCard, Disclaimer, ErrorState } from '../ui/UI';
+import { TrendChart, DonutChart, CHART_COLORS } from '../ui/Charts';
+import { PredictionsTable } from '../prediction/Tables';
+import { countByDay, riskSplit } from '../../utils/format';
+import { LogoMark } from '../brand/Logo';
 
-export default function DoctorOverview({ onNavigate }) {
-  // Statistics calculations
-  const totalPatients = MOCK_PATIENTS.length;
-  const totalPredictions = MOCK_PREDICTIONS.length;
-  const pendingReviewsCount = MOCK_PREDICTIONS.filter(p => p.status === 'Pending Review').length;
-  const recentPatients = MOCK_PATIENTS.slice(0, 4);
+export default function DoctorOverview({ onNavigate, patients, predictions, reports, reloadAll, patientLabel }) {
+  const { currentUser } = useAuth();
+  const split = riskSplit(predictions.list);
+  const trend = countByDay(predictions.list);
+  const loadError = patients.error || predictions.error;
 
   return (
-    <div className="space-y-8">
-      
-      {/* Medical Disclaimer Banner */}
-      <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 flex items-start space-x-3 text-slate-300 text-xs">
-        <AlertCircle className="w-5 h-5 text-sky-400 shrink-0 mt-0.5" />
+    <div className="stack-lg">
+      <div className="welcome">
+        <LogoMark className="deco" />
         <div>
-          <span className="font-bold text-sky-400">Clinical System Notice: </span>
-          <span>This system provides an AI-assisted CKD risk prediction based on supplied data and is not a medical diagnosis. Results should be reviewed by a qualified healthcare professional.</span>
+          <span className="badge badge-blue"><Stethoscope /> Doctor Workspace</span>
+          <h1 style={{ marginTop: 12 }}>Welcome, Dr. {currentUser?.name?.replace(/^dr\.?\s*/i, '').split(' ')[0] || ''}</h1>
+          <p>Review patient CKD risk predictions, explanations and reports. Predictions support — never replace — your clinical judgement.</p>
+        </div>
+        <div className="row wrap">
+          <button className="btn btn-ghost" onClick={() => onNavigate('/doctor/search')}><Search /> Find patient</button>
+          <button className="btn btn-primary" onClick={() => onNavigate('/doctor/predictions')}><PlusCircle /> New Prediction</button>
         </div>
       </div>
 
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center space-x-2">
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-white">Doctor Clinical Dashboard</h1>
-          </div>
-          <p className="text-xs sm:text-sm text-slate-400 mt-1">
-            Review patient information and prediction activity.
-          </p>
-        </div>
+      {loadError && <ErrorState message={loadError} onRetry={reloadAll} />}
 
-        <button
-          onClick={() => onNavigate('/doctor/patients')}
-          className="px-5 py-2.5 rounded-xl bg-teal-500 hover:bg-teal-400 text-slate-950 font-bold text-xs shadow-lg shadow-teal-500/20 transition-all flex items-center space-x-2 w-fit"
-        >
-          <Search className="w-4 h-4" />
-          <span>Patient Roster Search</span>
-        </button>
+      <div className="grid-4">
+        <StatCard featured label="Registered Patients" value={patients.list.length} sub="Patient records" icon={Users} loading={patients.loading} />
+        <StatCard label="Total Predictions" value={predictions.list.length} sub="Saved predictions" icon={Activity} tone="blue" loading={predictions.loading} />
+        <StatCard label="CKD Risk Results" value={split.risk} sub={`${split.noRisk} with no CKD risk`} icon={ShieldAlert} tone="red" loading={predictions.loading} />
+        <StatCard label="Medical Reports" value={reports.list.length} sub="Generated PDFs" icon={FileText} tone="navy" loading={reports.loading} />
       </div>
 
-      {/* Statistics Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        
-        {/* Total Patients */}
-        <div className="glass-panel p-5 rounded-2xl border border-slate-800 flex items-center justify-between glow-teal">
-          <div>
-            <p className="text-xs text-slate-400 font-medium">Total Patients</p>
-            <div className="flex items-baseline space-x-2 mt-1">
-              <span className="text-2xl font-extrabold text-white font-mono">{totalPatients}</span>
-              <span className="text-[10px] text-teal-400 font-semibold">(Registered)</span>
-            </div>
-          </div>
-          <div className="w-12 h-12 rounded-xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center text-teal-400">
-            <Users className="w-6 h-6" />
-          </div>
-        </div>
-
-        {/* Total Predictions */}
-        <div className="glass-panel p-5 rounded-2xl border border-slate-800 flex items-center justify-between glow-sky">
-          <div>
-            <p className="text-xs text-slate-400 font-medium">Total Predictions</p>
-            <div className="flex items-baseline space-x-2 mt-1">
-              <span className="text-2xl font-extrabold text-white font-mono">{totalPredictions}</span>
-              <span className="text-[10px] text-sky-400 font-semibold">(ML Models)</span>
-            </div>
-          </div>
-          <div className="w-12 h-12 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400">
-            <Activity className="w-6 h-6" />
-          </div>
-        </div>
-
-        {/* Recent Active Patients */}
-        <div className="glass-panel p-5 rounded-2xl border border-slate-800 flex items-center justify-between">
-          <div>
-            <p className="text-xs text-slate-400 font-medium">Recent Patients</p>
-            <div className="flex items-baseline space-x-2 mt-1">
-              <span className="text-2xl font-extrabold text-white font-mono">{recentPatients.length}</span>
-              <span className="text-[10px] text-indigo-400 font-semibold">(Active)</span>
-            </div>
-          </div>
-          <div className="w-12 h-12 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
-            <Clock className="w-6 h-6" />
-          </div>
-        </div>
-
-        {/* Pending Reviews */}
-        <div className="glass-panel p-5 rounded-2xl border border-slate-800 flex items-center justify-between">
-          <div>
-            <p className="text-xs text-slate-400 font-medium">Pending Reviews</p>
-            <div className="flex items-baseline space-x-2 mt-1">
-              <span className="text-2xl font-extrabold text-amber-400 font-mono">{pendingReviewsCount}</span>
-              <span className="text-[10px] text-amber-400/80 font-semibold">(Action Needed)</span>
-            </div>
-          </div>
-          <div className="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
-            <AlertCircle className="w-6 h-6" />
-          </div>
-        </div>
-
+      <div className="grid-main-side">
+        <Card title="Prediction activity" subtitle="Predictions saved per day" icon={ChartBar}>
+          {trend.length ? <TrendChart data={trend} valueLabel="Predictions" /> : <p className="muted small">No prediction activity yet.</p>}
+        </Card>
+        <Card title="Result distribution" subtitle="Across all saved predictions" icon={ShieldAlert}>
+          <DonutChart
+            centerLabel="Predictions"
+            data={[
+              { label: 'CKD Risk', value: split.risk, color: CHART_COLORS.red },
+              { label: 'No CKD Risk', value: split.noRisk, color: CHART_COLORS.green },
+            ]}
+          />
+        </Card>
       </div>
 
-      {/* QUICK ACTIONS SECTION */}
-      <div className="space-y-4">
-        <h2 className="text-lg font-bold text-white flex items-center space-x-2">
-          <Sparkles className="w-5 h-5 text-teal-400" />
-          <span>Quick Clinical Actions</span>
-        </h2>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          
-          <button
-            onClick={() => onNavigate('/doctor/patients')}
-            className="glass-panel p-5 rounded-2xl border border-slate-800 hover:border-teal-500/50 hover:bg-slate-900/80 transition-all text-left group"
-          >
-            <div className="flex items-center justify-between mb-3">
-              <div className="w-10 h-10 rounded-xl bg-teal-500/10 text-teal-400 flex items-center justify-center group-hover:scale-110 transition-transform">
-                <Search className="w-5 h-5" />
-              </div>
-              <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-teal-400 transition-colors" />
-            </div>
-            <h3 className="font-bold text-sm text-white group-hover:text-teal-400 transition-colors">Search Patients</h3>
-            <p className="text-xs text-slate-400 mt-1">Find patient records by ID, Name, or Email</p>
+      <div className="grid-4">
+        {[
+          { icon: Users, tone: 'tone-green', t: 'My Patients', s: 'Browse patient records', to: '/doctor/patients' },
+          { icon: History, tone: 'tone-blue', t: 'Prediction History', s: 'All saved predictions', to: '/doctor/history' },
+          { icon: Sparkles, tone: 'tone-amber', t: 'SHAP Explanation', s: 'Factor contributions', to: '/doctor/shap' },
+          { icon: FileText, tone: 'tone-navy', t: 'Medical Reports', s: 'Download PDF reports', to: '/doctor/reports' },
+        ].map((q) => (
+          <button key={q.t} className="card card-hover quick" onClick={() => onNavigate(q.to)}>
+            <span className={`ic ${q.tone}`}><q.icon /></span>
+            <div><b>{q.t}</b><span>{q.s}</span></div>
+            <ArrowRight />
           </button>
-
-          <button
-            onClick={() => onNavigate('/doctor/patients')}
-            className="glass-panel p-5 rounded-2xl border border-slate-800 hover:border-sky-500/50 hover:bg-slate-900/80 transition-all text-left group"
-          >
-            <div className="flex items-center justify-between mb-3">
-              <div className="w-10 h-10 rounded-xl bg-sky-500/10 text-sky-400 flex items-center justify-center group-hover:scale-110 transition-transform">
-                <Users className="w-5 h-5" />
-              </div>
-              <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-sky-400 transition-colors" />
-            </div>
-            <h3 className="font-bold text-sm text-white group-hover:text-sky-400 transition-colors">View Patients</h3>
-            <p className="text-xs text-slate-400 mt-1">Browse full clinical roster and EHR details</p>
-          </button>
-
-          <button
-            onClick={() => onNavigate('/doctor/predictions')}
-            className="glass-panel p-5 rounded-2xl border border-slate-800 hover:border-indigo-500/50 hover:bg-slate-900/80 transition-all text-left group"
-          >
-            <div className="flex items-center justify-between mb-3">
-              <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center group-hover:scale-110 transition-transform">
-                <Activity className="w-5 h-5" />
-              </div>
-              <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-indigo-400 transition-colors" />
-            </div>
-            <h3 className="font-bold text-sm text-white group-hover:text-indigo-400 transition-colors">View Predictions</h3>
-            <p className="text-xs text-slate-400 mt-1">Review ML prediction logs and risk categories</p>
-          </button>
-
-          <button
-            onClick={() => onNavigate('/doctor/reports')}
-            className="glass-panel p-5 rounded-2xl border border-slate-800 hover:border-purple-500/50 hover:bg-slate-900/80 transition-all text-left group"
-          >
-            <div className="flex items-center justify-between mb-3">
-              <div className="w-10 h-10 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center group-hover:scale-110 transition-transform">
-                <FileText className="w-5 h-5" />
-              </div>
-              <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-purple-400 transition-colors" />
-            </div>
-            <h3 className="font-bold text-sm text-white group-hover:text-purple-400 transition-colors">View Reports</h3>
-            <p className="text-xs text-slate-400 mt-1">Access medical summary and referral reports</p>
-          </button>
-
-        </div>
+        ))}
       </div>
 
-      {/* RECENT PATIENTS TABLE SECTION */}
-      <div className="glass-panel p-6 rounded-3xl border border-slate-800 space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <div>
-            <h2 className="text-lg font-bold text-white">Recent Patients</h2>
-            <p className="text-xs text-slate-400">Latest active patient records in your clinical list</p>
-          </div>
-          <button
-            onClick={() => onNavigate('/doctor/patients')}
-            className="text-xs text-teal-400 hover:text-teal-300 font-semibold flex items-center space-x-1"
-          >
-            <span>See All Patients ({MOCK_PATIENTS.length})</span>
-            <ChevronRight className="w-4 h-4" />
-          </button>
-        </div>
+      <Card title="Recent predictions" icon={History} noBody actions={<button className="btn btn-sm btn-ghost" onClick={() => onNavigate('/doctor/history')}>View all</button>}>
+        <PredictionsTable
+          predictions={predictions.list}
+          limit={6}
+          patientName={(p) => patientLabel(p.patient_id)}
+          onView={(p) => onNavigate(`/doctor/result/${p.id}`)}
+        />
+      </Card>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs text-left border-collapse">
-            <thead>
-              <tr className="border-b border-slate-800 text-slate-400 uppercase text-[10px]">
-                <th className="py-3 px-4">Patient ID</th>
-                <th className="py-3 px-4">Patient Name</th>
-                <th className="py-3 px-4">Age</th>
-                <th className="py-3 px-4">Last Prediction</th>
-                <th className="py-3 px-4">Result</th>
-                <th className="py-3 px-4 text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/80">
-              {recentPatients.map(p => (
-                <tr key={p.id} className="hover:bg-slate-900/50 transition-colors">
-                  <td className="py-3.5 px-4 font-mono font-bold text-teal-400">{p.id}</td>
-                  <td className="py-3.5 px-4 font-bold text-white">
-                    {p.name}
-                    <span className="block text-[10px] font-normal text-slate-400">{p.email}</span>
-                  </td>
-                  <td className="py-3.5 px-4 text-slate-300">{p.age} yrs ({p.gender})</td>
-                  <td className="py-3.5 px-4 text-slate-300 font-mono">{p.lastPrediction}</td>
-                  <td className="py-3.5 px-4">
-                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold border ${
-                      p.result === 'CKD'
-                        ? 'bg-rose-500/20 text-rose-400 border-rose-500/30'
-                        : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
-                    }`}>
-                      {p.result}
-                    </span>
-                  </td>
-                  <td className="py-3.5 px-4 text-right">
-                    <button
-                      onClick={() => onNavigate(`/doctor/patients/${p.id}`)}
-                      className="px-3 py-1.5 rounded-lg bg-teal-500/10 hover:bg-teal-500/20 text-teal-400 border border-teal-500/30 font-semibold text-xs transition-all flex items-center space-x-1 ml-auto"
-                    >
-                      <Eye className="w-3.5 h-3.5" />
-                      <span>View Patient</span>
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
+      <Disclaimer />
     </div>
   );
 }
