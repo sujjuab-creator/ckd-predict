@@ -1,12 +1,9 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { DEMO_USERS } from '../data/mockData';
 import apiService from '../services/api';
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  // Store extra registered demo accounts created during session
-  const [registeredDemoUsers, setRegisteredDemoUsers] = useState([]);
   const [backendAvailable, setBackendAvailable] = useState(false);
 
   // Check backend health on mount
@@ -20,30 +17,33 @@ export function AuthProvider({ children }) {
     });
   }, []);
 
-  // Initialize Auth State from sessionStorage if available
+  // Initialize Auth State from sessionStorage if available (defaults to null for unauthenticated users)
   const [currentUser, setCurrentUser] = useState(() => {
     try {
-      const saved = sessionStorage.getItem('ckd_demo_session');
-      return saved ? JSON.parse(saved) : DEMO_USERS.patient; // Default demo session for immediate viewing
+      const saved = sessionStorage.getItem('ckd_session');
+      return saved ? JSON.parse(saved) : null;
     } catch {
-      return DEMO_USERS.patient;
+      return null;
     }
   });
 
-  const saveSession = (user) => {
+  const saveSession = (user, token = null) => {
     setCurrentUser(user);
     if (user) {
-      sessionStorage.setItem('ckd_demo_session', JSON.stringify(user));
+      sessionStorage.setItem('ckd_session', JSON.stringify(user));
+      if (token) {
+        localStorage.setItem('ckd_token', token);
+      }
     } else {
-      sessionStorage.removeItem('ckd_demo_session');
+      sessionStorage.removeItem('ckd_session');
+      localStorage.removeItem('ckd_token');
     }
   };
 
   /**
-   * Login Function (Connects to Flask Backend API with Demo Fallback)
+   * Login Function (Connects directly to Flask Backend API and Database)
    */
   const login = async (email, password, selectedRole) => {
-    // Basic validation
     if (!email || !email.trim()) {
       return { success: false, error: 'Email address is required.' };
     }
@@ -60,7 +60,6 @@ export function AuthProvider({ children }) {
 
     const cleanEmail = email.trim().toLowerCase();
 
-    // 1. Try Backend API login first
     try {
       const apiRes = await apiService.login({
         email: cleanEmail,
@@ -70,49 +69,24 @@ export function AuthProvider({ children }) {
 
       if (apiRes.ok && apiRes.data?.success) {
         const backendUser = apiRes.data.user;
+        const token = apiRes.data.token;
         const sessionUser = {
           id: backendUser.id,
           name: backendUser.name,
           email: backendUser.email,
           role: backendUser.role,
-          mrn: `PAT-${backendUser.id}`,
+          status: backendUser.status || 'Active',
+          isTemporaryPassword: backendUser.is_temporary_password || false,
+          mrn: backendUser.role === 'patient' ? (backendUser.patient_id || `PAT-${backendUser.id}`) : undefined,
           loggedIn: true
         };
-        saveSession(sessionUser);
+        saveSession(sessionUser, token);
         return { success: true, redirectPath: `/${sessionUser.role}`, user: sessionUser };
+      } else if (apiRes.data?.error) {
+        return { success: false, error: apiRes.data.error };
       }
     } catch (e) {
-      // Backend unreachable or error, continue to demo fallback
-    }
-
-    // 2. Check predefined demo accounts
-    let foundUser = Object.values(DEMO_USERS).find(
-      u => u.email.toLowerCase() === cleanEmail && u.password === password && u.role === selectedRole
-    );
-
-    // Check dynamically registered demo accounts
-    if (!foundUser) {
-      foundUser = registeredDemoUsers.find(
-        u => u.email.toLowerCase() === cleanEmail && u.password === password && u.role === selectedRole
-      );
-    }
-
-    if (foundUser) {
-      const sessionUser = {
-        id: foundUser.id,
-        name: foundUser.name,
-        email: foundUser.email,
-        role: foundUser.role,
-        mrn: foundUser.mrn || 'MRN-DEMO-01',
-        license: foundUser.license || 'MD-DEMO-01',
-        assignedDoctor: foundUser.assignedDoctor || 'Dr. Aris Thorne',
-        avatar: foundUser.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
-        loggedIn: true
-      };
-      saveSession(sessionUser);
-
-      const redirectPath = `/${sessionUser.role}`;
-      return { success: true, redirectPath, user: sessionUser };
+      return { success: false, error: 'Authentication failed. Please check network connection.' };
     }
 
     return { 
@@ -122,91 +96,20 @@ export function AuthProvider({ children }) {
   };
 
   /**
-   * Quick 1-Click Demo Login
+   * Signup Function (Public registration disabled in hospital mode)
    */
-  const quickDemoLogin = (role) => {
-    const user = DEMO_USERS[role] || DEMO_USERS.patient;
-    const sessionUser = {
-      ...user,
-      loggedIn: true
+  const signup = async () => {
+    return {
+      success: false,
+      error: 'Public self-registration is disabled. Patient and Doctor accounts must be created by the Hospital Administrator.'
     };
-    saveSession(sessionUser);
-    return `/${role}`;
   };
 
   /**
-   * Signup Function (Connects to Flask Backend API)
-   */
-  const signupDemo = async ({ name, email, password, confirmPassword, role }) => {
-    if (!name || !name.trim()) {
-      return { success: false, error: 'Full name is required.' };
-    }
-    if (!email || !email.trim()) {
-      return { success: false, error: 'Email address is required.' };
-    }
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email.trim())) {
-      return { success: false, error: 'Please enter a valid email address.' };
-    }
-    if (!password) {
-      return { success: false, error: 'Password is required.' };
-    }
-    if (password.length < 6) {
-      return { success: false, error: 'Password must be at least 6 characters long.' };
-    }
-    if (password !== confirmPassword) {
-      return { success: false, error: 'Passwords do not match.' };
-    }
-    if (!role) {
-      return { success: false, error: 'Please select a role.' };
-    }
-
-    // Critical Requirement: Admin signup is strictly prohibited
-    if (role === 'admin') {
-      return { success: false, error: 'Admin account creation is not allowed via registration.' };
-    }
-
-    // 1. Try Backend API registration
-    try {
-      const apiRes = await apiService.register({
-        name: name.trim(),
-        email: email.trim().toLowerCase(),
-        password: password,
-        role: role
-      });
-
-      if (apiRes.ok && apiRes.data?.success) {
-        return { success: true, message: 'Account registered successfully in database.' };
-      } else if (apiRes.data?.error) {
-        return { success: false, error: apiRes.data.error };
-      }
-    } catch (e) {
-      // Fall through to local fallback registration if backend down
-    }
-
-    // Create new demo user object (Fallback)
-    const newDemoUser = {
-      id: `usr-demo-${Date.now()}`,
-      name: name.trim(),
-      email: email.trim().toLowerCase(),
-      password: password,
-      role: role,
-      mrn: role === 'patient' ? `MRN-${Math.floor(100000 + Math.random() * 900000)}` : undefined,
-      license: role === 'doctor' ? `MD-${Math.floor(100000 + Math.random() * 900000)}` : undefined,
-      avatar: role === 'doctor' 
-        ? 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=150' 
-        : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'
-    };
-
-    setRegisteredDemoUsers(prev => [...prev, newDemoUser]);
-    return { success: true, message: 'Demo account created successfully.' };
-  };
-
-  /**
-   * Demo Logout Function
+   * Logout Function
    */
   const logout = () => {
-    saveSession(null);
+    saveSession(null, null);
   };
 
   return (
@@ -214,8 +117,7 @@ export function AuthProvider({ children }) {
       currentUser,
       backendAvailable,
       login,
-      quickDemoLogin,
-      signupDemo,
+      signup,
       logout
     }}>
       {children}
@@ -230,4 +132,5 @@ export function useAuth() {
   }
   return context;
 }
+
 

@@ -40,12 +40,12 @@ export default function AdminPredictions({ onNavigate }) {
   return (
     <div className="space-y-8">
       
-      {/* Disclaimer */}
-      <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 flex items-start space-x-3 text-amber-300 text-xs">
-        <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+      {/* Clinical Notice */}
+      <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 flex items-start space-x-3 text-slate-300 text-xs">
+        <AlertCircle className="w-5 h-5 text-sky-400 shrink-0 mt-0.5" />
         <div>
-          <span className="font-bold text-amber-400">SYSTEM PREDICTIONS LOG (DEMO): </span>
-          <span>Central audit log of all machine learning predictions run on the platform.</span>
+          <span className="font-bold text-sky-400">Clinical System Notice: </span>
+          <span>This system provides an AI-assisted CKD risk prediction based on supplied data and is not a medical diagnosis. Results should be reviewed by a qualified healthcare professional.</span>
         </div>
       </div>
 

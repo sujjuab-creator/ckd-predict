@@ -71,8 +71,8 @@ export default function AdminSidebar({ currentPath, onNavigate }) {
               className="w-10 h-10 rounded-xl object-cover border border-indigo-500/40"
             />
             <div className="truncate">
-              <p className="text-xs font-bold text-white truncate">{currentUser?.name || 'Dr. Elena Rostova'}</p>
-              <p className="text-[10px] text-indigo-400 font-semibold truncate">System Admin (Demo)</p>
+              <p className="text-xs font-bold text-white truncate">{currentUser?.name || 'System Administrator'}</p>
+              <p className="text-[10px] text-indigo-400 font-semibold truncate">System Administrator</p>
             </div>
           </div>
 
@@ -105,16 +105,8 @@ export default function AdminSidebar({ currentPath, onNavigate }) {
           </nav>
         </div>
 
-        {/* Demo Disclaimer & Logout Footer */}
+        {/* Logout Footer */}
         <div className="pt-4 border-t border-slate-800/80 space-y-3">
-          <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[10px] text-amber-300/90 leading-tight">
-            <div className="flex items-center space-x-1 font-bold mb-1 text-amber-400">
-              <AlertTriangle className="w-3 h-3 text-amber-400 shrink-0" />
-              <span>DEMO MODE</span>
-            </div>
-            Demonstration data is used during development.
-          </div>
-
           <button
             onClick={handleLogout}
             className="w-full py-2.5 px-3 rounded-xl font-semibold text-xs text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 transition-all flex items-center space-x-2"

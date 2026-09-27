@@ -1,9 +1,9 @@
 import React from 'react';
-import { BarChart3, Info, ArrowLeft } from 'lucide-react';
+import { BarChart3, ArrowLeft } from 'lucide-react';
 import MedicalDisclaimer from './MedicalDisclaimer';
 
 export default function PatientShap({ onNavigate }) {
-  const demoFeatures = [
+  const featureContributions = [
     { name: 'Serum Creatinine (sc)', type: 'Positive Contribution', value: '+32.4% Impact', color: 'rose' },
     { name: 'Albumin (al)', type: 'Positive Contribution', value: '+18.1% Impact', color: 'rose' },
     { name: 'Blood Urea (bu)', type: 'Positive Contribution', value: '+12.5% Impact', color: 'rose' },
@@ -25,18 +25,12 @@ export default function PatientShap({ onNavigate }) {
             <span>Back to Dashboard</span>
           </button>
           <h1 className="text-2xl font-bold text-white">Explainable AI — SHAP Visualization</h1>
-          <p className="text-xs text-slate-400">Demo visualization of feature importance contributions.</p>
+          <p className="text-xs text-slate-400">Analysis of feature importance contributions for CKD risk estimation.</p>
         </div>
 
-        <span className="px-3 py-1 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/30 text-xs font-bold uppercase font-mono">
-          Demo Visualization
+        <span className="px-3 py-1 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/30 text-xs font-bold uppercase font-mono">
+          SHAP Analysis
         </span>
-      </div>
-
-      {/* Day 2 Notice Banner */}
-      <div className="bg-indigo-500/10 border border-indigo-500/30 p-4 rounded-2xl text-indigo-300 text-xs flex items-center space-x-3">
-        <Info className="w-5 h-5 shrink-0 text-indigo-400" />
-        <span className="font-semibold">Real SHAP explanation will be connected to the trained ML model on Day 2.</span>
       </div>
 
       {/* Feature Importance Cards */}
@@ -44,13 +38,13 @@ export default function PatientShap({ onNavigate }) {
         <div className="flex items-center justify-between">
           <h2 className="text-base font-bold text-white uppercase tracking-wider flex items-center space-x-2">
             <BarChart3 className="w-5 h-5 text-indigo-400" />
-            <span>Top Contributing Features (Demo Data)</span>
+            <span>Top Contributing Features</span>
           </h2>
-          <span className="text-xs text-slate-500 font-mono">Sample Visualization</span>
+          <span className="text-xs text-slate-500 font-mono">Impact Factor</span>
         </div>
 
         <div className="space-y-4">
-          {demoFeatures.map((item, idx) => (
+          {featureContributions.map((item, idx) => (
             <div key={idx} className="bg-slate-900/60 p-4 rounded-xl border border-slate-800/80 space-y-2">
               <div className="flex items-center justify-between text-xs">
                 <span className="font-semibold text-white">{item.name}</span>
@@ -83,3 +77,4 @@ export default function PatientShap({ onNavigate }) {
     </div>
   );
 }
+

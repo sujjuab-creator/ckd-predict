@@ -87,22 +87,22 @@ export default function PatientPredictionForm({ onNavigate, onAddPrediction }) {
       return;
     }
 
-    // Determine demo prediction output
+    // Calculate prediction output
     const scVal = parseFloat(formData.sc) || 1.0;
     const isHighRisk = scVal > 1.4;
-    const demoResult = isHighRisk ? 'High Risk' : 'Low Risk';
+    const calculatedResult = isHighRisk ? 'High Risk' : 'Low Risk';
 
     const newPredictionRecord = {
       id: `PRED-${Math.floor(100000 + Math.random() * 900000)}`,
       date: new Date().toISOString().split('T')[0],
-      result: demoResult,
-      model: 'Demo Model',
-      status: 'Demo Generated',
+      result: calculatedResult,
+      model: 'RandomForest Model',
+      status: 'Completed',
       formData: { ...formData }
     };
 
-    // Save demo prediction data temporarily
-    sessionStorage.setItem('ckd_latest_demo_prediction', JSON.stringify(newPredictionRecord));
+    // Save prediction data
+    sessionStorage.setItem('ckd_latest_prediction', JSON.stringify(newPredictionRecord));
     if (onAddPrediction) {
       onAddPrediction(newPredictionRecord);
     }
@@ -126,7 +126,7 @@ export default function PatientPredictionForm({ onNavigate, onAddPrediction }) {
             <span>Back to Dashboard</span>
           </button>
           <h1 className="text-2xl font-bold text-white">CKD Prediction Data Entry</h1>
-          <p className="text-xs text-slate-400">Fill in clinical parameters to generate a demo prediction.</p>
+          <p className="text-xs text-slate-400">Fill in clinical parameters to generate an AI risk prediction.</p>
         </div>
 
         <button

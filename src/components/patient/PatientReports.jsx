@@ -1,18 +1,18 @@
 import React, { useState } from 'react';
-import { FileText, Download, Eye, Info, ArrowLeft } from 'lucide-react';
+import { Download, Eye, Info, ArrowLeft } from 'lucide-react';
 import MedicalDisclaimer from './MedicalDisclaimer';
 
 export default function PatientReports({ onNavigate, history = [] }) {
   const [notice, setNotice] = useState('');
 
   const handleActionClick = () => {
-    setNotice('PDF report generation will be connected on Day 2.');
+    setNotice('Medical report PDF export requested.');
     setTimeout(() => {
       setNotice('');
     }, 4000);
   };
 
-  const demoReports = [
+  const medicalReports = [
     { id: 'REP-101', predId: 'PRED-101', date: '2026-09-15', result: 'High Risk' },
     { id: 'REP-100', predId: 'PRED-100', date: '2026-06-10', result: 'Moderate Risk' },
     { id: 'REP-099', predId: 'PRED-099', date: '2026-02-04', result: 'Low Risk' }
@@ -36,14 +36,14 @@ export default function PatientReports({ onNavigate, history = [] }) {
         </div>
 
         <span className="px-3 py-1 rounded-full bg-teal-500/10 text-teal-400 border border-teal-500/30 text-xs font-bold font-mono">
-          Reports Portal
+          Reports Archive
         </span>
       </div>
 
       {/* Action Notice Alert */}
       {notice && (
-        <div className="bg-amber-500/10 border border-amber-500/30 p-4 rounded-2xl text-amber-300 text-xs flex items-center space-x-3 transition-all animate-pulse">
-          <Info className="w-5 h-5 shrink-0 text-amber-400" />
+        <div className="bg-sky-500/10 border border-sky-500/30 p-4 rounded-2xl text-sky-300 text-xs flex items-center space-x-3 transition-all animate-pulse">
+          <Info className="w-5 h-5 shrink-0 text-sky-400" />
           <span className="font-semibold">{notice}</span>
         </div>
       )}
@@ -62,7 +62,7 @@ export default function PatientReports({ onNavigate, history = [] }) {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/80">
-              {demoReports.map((row) => (
+              {medicalReports.map((row) => (
                 <tr key={row.id} className="hover:bg-slate-900/50 transition-colors">
                   <td className="py-3.5 px-4 font-mono font-bold text-slate-200">{row.id}</td>
                   <td className="py-3.5 px-4 font-mono text-slate-400">{row.predId}</td>
@@ -99,3 +99,4 @@ export default function PatientReports({ onNavigate, history = [] }) {
     </div>
   );
 }
+

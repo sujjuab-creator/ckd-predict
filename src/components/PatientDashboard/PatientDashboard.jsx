@@ -7,16 +7,16 @@ import PatientHistory from '../patient/PatientHistory';
 import PatientShap from '../patient/PatientShap';
 import PatientReports from '../patient/PatientReports';
 import PatientProfile from '../patient/PatientProfile';
-import { HISTORICAL_PREDICTIONS_DEMO } from '../../data/mockData';
+import { INITIAL_PREDICTIONS } from '../../data/mockData';
 
 export default function PatientDashboard({ currentPath = '/patient', onNavigate }) {
-  // Initialize demo history from localStorage or fallback to default
+  // Initialize patient history from localStorage or fallback to default
   const [history, setHistory] = useState(() => {
     try {
-      const saved = localStorage.getItem('ckd_demo_history');
-      return saved ? JSON.parse(saved) : HISTORICAL_PREDICTIONS_DEMO;
+      const saved = localStorage.getItem('ckd_patient_history');
+      return saved ? JSON.parse(saved) : INITIAL_PREDICTIONS;
     } catch {
-      return HISTORICAL_PREDICTIONS_DEMO;
+      return INITIAL_PREDICTIONS;
     }
   });
 
@@ -27,7 +27,7 @@ export default function PatientDashboard({ currentPath = '/patient', onNavigate 
     setHistory(updated);
     setLatestPrediction(newRecord);
     try {
-      localStorage.setItem('ckd_demo_history', JSON.stringify(updated));
+      localStorage.setItem('ckd_patient_history', JSON.stringify(updated));
     } catch {}
   };
 

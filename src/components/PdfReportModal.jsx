@@ -150,7 +150,7 @@ export default function PdfReportModal({ predictionResult, patientData, onClose 
           {/* Physician Signature & Disclaimer Footer */}
           <div className="pt-6 border-t border-slate-800 space-y-4">
             <p className="text-[10px] text-slate-500 italic">
-              This system provides AI-assisted prediction for demonstration and research purposes. It is not a substitute for professional medical diagnosis.
+              This system provides an AI-assisted CKD risk prediction based on supplied data and is not a medical diagnosis. Results should be reviewed by a qualified healthcare professional.
             </p>
 
             <div className="flex items-center justify-between text-xs text-slate-400">

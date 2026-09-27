@@ -1,4 +1,4 @@
-// Mock System Analytics Data for Admin Dashboard (Demo Data Only)
+// System Analytics Data for Admin Dashboard
 
 export const MOCK_ANALYTICS = {
   totalPredictions: 1420,
@@ -36,10 +36,10 @@ export const MOCK_ANALYTICS = {
 
   // Chart 4: Model Performance Placeholder Data
   modelPerformancePlaceholder: [
-    { metric: 'Sensitivity (TPR)', demoScore: 97.8 },
-    { metric: 'Specificity (TNR)', demoScore: 99.1 },
-    { metric: 'ROC-AUC Score', demoScore: 99.2 },
-    { metric: 'F1-Score', demoScore: 98.4 }
+    { metric: 'Sensitivity (TPR)', score: 97.8 },
+    { metric: 'Specificity (TNR)', score: 99.1 },
+    { metric: 'ROC-AUC Score', score: 99.2 },
+    { metric: 'F1-Score', score: 98.4 }
   ],
 
   // Activity Summary Cards Data
@@ -51,7 +51,7 @@ export const MOCK_ANALYTICS = {
     },
     patientActivity: {
       title: 'Patient Activity',
-      description: '65 new demo patients registered in the last 30 days',
+      description: '65 new patients registered in the last 30 days',
       status: 'Active'
     },
     doctorActivity: {

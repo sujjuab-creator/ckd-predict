@@ -1,24 +1,23 @@
 import React from 'react';
 import StatusBadge from './StatusBadge';
 import MedicalDisclaimer from './MedicalDisclaimer';
-import { ShieldAlert, PlusCircle, History, LayoutDashboard, Info } from 'lucide-react';
+import { PlusCircle, History, LayoutDashboard } from 'lucide-react';
 
 export default function PatientResult({ onNavigate, latestPrediction }) {
-  // Retrieve demo prediction record
   let record = latestPrediction;
   if (!record) {
     try {
-      const saved = sessionStorage.getItem('ckd_latest_demo_prediction');
+      const saved = sessionStorage.getItem('ckd_latest_prediction');
       if (saved) record = JSON.parse(saved);
     } catch {}
   }
 
   if (!record) {
     record = {
-      id: 'PRED-DEMO-101',
+      id: 'PRED-101',
       date: new Date().toISOString().split('T')[0],
       result: 'High Risk',
-      model: 'Demo Model'
+      model: 'RandomForest Classifier'
     };
   }
 
@@ -28,7 +27,7 @@ export default function PatientResult({ onNavigate, latestPrediction }) {
       {/* Header */}
       <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-slate-800 text-center space-y-4 glow-cyan">
         <div className="inline-flex items-center space-x-2">
-          <StatusBadge type="demo-prediction" />
+          <StatusBadge type="clinical-prediction" text="CLINICAL PREDICTION" />
         </div>
 
         <h1 className="text-3xl font-extrabold text-white">CKD Prediction Result</h1>
@@ -41,16 +40,10 @@ export default function PatientResult({ onNavigate, latestPrediction }) {
             {record.result || 'High Risk'}
           </p>
           <div className="flex justify-center items-center space-x-3 text-xs pt-2">
-            <span className="text-slate-400">Model: <strong className="text-slate-200">Demo Model</strong></span>
+            <span className="text-slate-400">Model: <strong className="text-slate-200">{record.model || 'RandomForest Classifier'}</strong></span>
             <span className="text-slate-600">•</span>
             <span className="text-slate-400">ID: <strong className="text-slate-200 font-mono">{record.id}</strong></span>
           </div>
-        </div>
-
-        {/* Day 2 Real ML Notice Box */}
-        <div className="bg-indigo-500/10 border border-indigo-500/30 p-4 rounded-xl text-indigo-300 text-xs flex items-center space-x-3 text-left">
-          <Info className="w-5 h-5 shrink-0 text-indigo-400" />
-          <span>Real machine-learning prediction will be connected on Day 2.</span>
         </div>
       </div>
 
@@ -87,3 +80,4 @@ export default function PatientResult({ onNavigate, latestPrediction }) {
     </div>
   );
 }
+

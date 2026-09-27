@@ -71,7 +71,7 @@ export default function DoctorSidebar({ currentPath, onNavigate }) {
             />
             <div className="truncate">
               <p className="text-xs font-bold text-white truncate">{currentUser?.name || 'Dr. Aris Thorne'}</p>
-              <p className="text-[10px] text-teal-400 font-semibold truncate">Nephrologist (Demo)</p>
+              <p className="text-[10px] text-teal-400 font-semibold truncate">Nephrologist Specialist</p>
             </div>
           </div>
 
@@ -104,16 +104,8 @@ export default function DoctorSidebar({ currentPath, onNavigate }) {
           </nav>
         </div>
 
-        {/* Demo Disclaimer & Logout Footer */}
+        {/* Logout Footer */}
         <div className="pt-4 border-t border-slate-800/80 space-y-3">
-          <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[10px] text-amber-300/90 leading-tight">
-            <div className="flex items-center space-x-1 font-bold mb-1 text-amber-400">
-              <AlertTriangle className="w-3 h-3 text-amber-400 shrink-0" />
-              <span>DEMO MODE</span>
-            </div>
-            This interface uses demo data for development only.
-          </div>
-
           <button
             onClick={handleLogout}
             className="w-full py-2.5 px-3 rounded-xl font-semibold text-xs text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 transition-all flex items-center space-x-2"

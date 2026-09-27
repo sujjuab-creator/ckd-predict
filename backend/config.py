@@ -15,8 +15,9 @@ class Config:
     
     db_url = os.getenv('DATABASE_URL', '').strip()
     
-    # In production, strictly use configured DATABASE_URL and do not fallback to SQLite
-    if flask_env == 'production':
+    if flask_env == 'testing':
+        SQLALCHEMY_DATABASE_URI = 'sqlite:///:memory:'
+    elif flask_env == 'production':
         if not db_url:
             raise ValueError("[PRODUCTION CONFIG ERROR] DATABASE_URL environment variable is required in production environment!")
         SQLALCHEMY_DATABASE_URI = db_url

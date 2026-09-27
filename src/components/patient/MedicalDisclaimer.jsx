@@ -9,8 +9,9 @@ export default function MedicalDisclaimer() {
         <span>Medical Disclaimer</span>
       </div>
       <p className="text-[11px] text-slate-400 leading-normal">
-        This system provides AI-assisted prediction for demonstration and research purposes. It is not a substitute for professional medical diagnosis.
+        This system provides an AI-assisted CKD risk prediction based on supplied data and is not a medical diagnosis. Results should be reviewed by a qualified healthcare professional.
       </p>
     </div>
   );
 }
+

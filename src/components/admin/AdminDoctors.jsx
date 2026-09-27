@@ -36,12 +36,12 @@ export default function AdminDoctors({ onNavigate }) {
         </div>
       )}
 
-      {/* Disclaimer */}
-      <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 flex items-start space-x-3 text-amber-300 text-xs">
-        <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+      {/* Clinical Notice */}
+      <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 flex items-start space-x-3 text-slate-300 text-xs">
+        <AlertCircle className="w-5 h-5 text-sky-400 shrink-0 mt-0.5" />
         <div>
-          <span className="font-bold text-amber-400">PRACTITIONER ROSTER (DEMO): </span>
-          <span>Verified doctor accounts and clinic affiliations demo dataset.</span>
+          <span className="font-bold text-sky-400">Clinical System Notice: </span>
+          <span>This system provides an AI-assisted CKD risk prediction based on supplied data and is not a medical diagnosis. Results should be reviewed by a qualified healthcare professional.</span>
         </div>
       </div>
 
@@ -132,7 +132,7 @@ export default function AdminDoctors({ onNavigate }) {
           <div className="relative w-full max-w-md bg-slate-950 border border-slate-800 rounded-3xl p-6 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-800 pb-4">
               <h3 className="text-base font-bold text-white">
-                {selectedDoctorModal.editMode ? 'Edit Doctor Profile (Demo)' : 'Doctor Credentials'}
+                {selectedDoctorModal.editMode ? 'Edit Doctor Profile' : 'Doctor Credentials'}
               </h3>
               <button
                 onClick={() => setSelectedDoctorModal(null)}
@@ -198,7 +198,7 @@ export default function AdminDoctors({ onNavigate }) {
               <button
                 onClick={() => {
                   if (selectedDoctorModal.editMode) {
-                    showToast('Doctor details updated (Demo State)');
+                    showToast('Doctor details updated');
                   }
                   setSelectedDoctorModal(null);
                 }}

@@ -3,16 +3,11 @@ import { Activity, ShieldCheck, UserCheck, Stethoscope, LogOut, ChevronRight, Sp
 import { useAuth } from '../context/AuthContext';
 
 export default function Navbar({ currentPath, onNavigate }) {
-  const { currentUser, logout, quickDemoLogin } = useAuth();
+  const { currentUser, logout } = useAuth();
 
   const handleLogout = () => {
     logout();
     onNavigate('/login');
-  };
-
-  const handleDemoSwitch = (role) => {
-    const path = quickDemoLogin(role);
-    onNavigate(path);
   };
 
   return (
@@ -84,48 +79,8 @@ export default function Navbar({ currentPath, onNavigate }) {
             </button>
           </nav>
 
-          {/* User Role Switcher & Auth Actions */}
+          {/* Auth Actions */}
           <div className="flex items-center space-x-3">
-            
-            {/* Demo Role Quick Switches */}
-            <div className="hidden lg:flex items-center bg-slate-900/90 border border-slate-800 rounded-xl p-1 text-xs">
-              <span className="text-slate-500 font-medium px-2">Demo Role:</span>
-              <button
-                onClick={() => handleDemoSwitch('patient')}
-                className={`px-2.5 py-1.5 rounded-lg font-medium transition-all flex items-center space-x-1 ${
-                  currentUser?.role === 'patient' && currentUser?.loggedIn
-                    ? 'bg-sky-500 text-white font-semibold shadow-md' 
-                    : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                <UserCheck className="w-3.5 h-3.5" />
-                <span>Patient</span>
-              </button>
-
-              <button
-                onClick={() => handleDemoSwitch('doctor')}
-                className={`px-2.5 py-1.5 rounded-lg font-medium transition-all flex items-center space-x-1 ${
-                  currentUser?.role === 'doctor' && currentUser?.loggedIn
-                    ? 'bg-teal-500 text-white font-semibold shadow-md' 
-                    : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                <Stethoscope className="w-3.5 h-3.5" />
-                <span>Doctor</span>
-              </button>
-
-              <button
-                onClick={() => handleDemoSwitch('admin')}
-                className={`px-2.5 py-1.5 rounded-lg font-medium transition-all flex items-center space-x-1 ${
-                  currentUser?.role === 'admin' && currentUser?.loggedIn
-                    ? 'bg-indigo-600 text-white font-semibold shadow-md' 
-                    : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                <ShieldCheck className="w-3.5 h-3.5" />
-                <span>Admin</span>
-              </button>
-            </div>
 
             {currentUser && currentUser.loggedIn ? (
               <div className="flex items-center space-x-3 border-l border-slate-800 pl-3">

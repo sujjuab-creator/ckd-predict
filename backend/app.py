@@ -6,11 +6,61 @@ from sqlalchemy.exc import OperationalError, DatabaseError
 
 from config import Config
 from extensions import db
+from models.user import User
+from utils.security import hash_password
+
 from routes.auth import auth_bp
+from routes.admin import admin_bp
 from routes.patients import patients_bp
 from routes.predictions import predictions_bp
 from routes.analytics import analytics_bp
 from routes.reports import reports_bp
+
+def auto_migrate_user_schema(app):
+    """Safely adds missing hospital metadata columns to existing users table if needed."""
+    with app.app_context():
+        try:
+            inspector = db.inspect(db.engine)
+            if 'users' in inspector.get_table_names():
+                existing_cols = [c['name'] for c in inspector.get_columns('users')]
+                with db.engine.begin() as conn:
+                    if 'status' not in existing_cols:
+                        conn.execute(db.text("ALTER TABLE users ADD COLUMN status VARCHAR(20) DEFAULT 'Active'"))
+                    if 'is_temporary_password' not in existing_cols:
+                        conn.execute(db.text("ALTER TABLE users ADD COLUMN is_temporary_password BOOLEAN DEFAULT 1"))
+                    if 'specialty_or_department' not in existing_cols:
+                        conn.execute(db.text("ALTER TABLE users ADD COLUMN specialty_or_department VARCHAR(100)"))
+                    if 'phone' not in existing_cols:
+                        conn.execute(db.text("ALTER TABLE users ADD COLUMN phone VARCHAR(30)"))
+        except Exception as err:
+            print(f"[INFO] Auto-migration check: {err}")
+
+def init_system_admin(app):
+    """Ensure exactly one System Administrator account exists on initialization."""
+    with app.app_context():
+        try:
+            admin_user = User.query.filter_by(role='admin').first()
+            if not admin_user:
+                admin_email = (os.getenv('ADMIN_EMAIL') or 'admin@ckdpredict.com').strip().lower()
+                admin_password = os.getenv('ADMIN_PASSWORD') or 'admin123'
+                admin_name = os.getenv('ADMIN_NAME') or 'System Administrator'
+
+                existing_email = User.query.filter(User.email.ilike(admin_email)).first()
+                if not existing_email:
+                    admin_user = User(
+                        name=admin_name,
+                        email=admin_email,
+                        password_hash=hash_password(admin_password),
+                        role='admin',
+                        status='Active',
+                        is_temporary_password=False,
+                        specialty_or_department='Chief Medical Data Officer'
+                    )
+                    db.session.add(admin_user)
+                    db.session.commit()
+                    print(f"[INFO] Single System Administrator initialized ({admin_email}).")
+        except Exception as err:
+            print(f"[WARNING] System Admin initialization skipped or encountered error: {err}")
 
 def create_app():
     app = Flask(__name__)
@@ -26,6 +76,7 @@ def create_app():
 
     # Register API Blueprints
     app.register_blueprint(auth_bp)
+    app.register_blueprint(admin_bp)
     app.register_blueprint(patients_bp)
     app.register_blueprint(predictions_bp)
     app.register_blueprint(analytics_bp)
@@ -47,7 +98,6 @@ def create_app():
             "database": db_status
         }), 200
 
-
     # Custom Error Handlers
     @app.errorhandler(404)
     def handle_404(e):
@@ -61,7 +111,9 @@ def create_app():
     with app.app_context():
         try:
             db.create_all()
+            auto_migrate_user_schema(app)
             print("[INFO] Database tables verified / created successfully.")
+            init_system_admin(app)
         except (OperationalError, DatabaseError) as err:
             print("\n" + "="*70)
             print("[MYSQL ERROR] Failed to connect to MySQL database:")

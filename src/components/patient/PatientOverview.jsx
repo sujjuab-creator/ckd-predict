@@ -20,7 +20,7 @@ export default function PatientOverview({ onNavigate, history = [] }) {
         <div>
           <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-sky-500/10 text-sky-400 border border-sky-500/30 text-[10px] font-bold font-mono uppercase tracking-wider mb-2">
             <Sparkles className="w-3.5 h-3.5" />
-            <span>Patient Portal • Day 1 Demo</span>
+            <span>Patient Portal</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold text-white">Welcome back, Patient</h1>
           <p className="text-xs text-slate-400 mt-1">Monitor your CKD prediction activity and clinical reports.</p>
@@ -40,7 +40,7 @@ export default function PatientOverview({ onNavigate, history = [] }) {
         <DashboardCard 
           title="Total Predictions" 
           value={totalPredictions} 
-          subtitle="Demo recorded entries"
+          subtitle="Recorded entries"
           icon={Activity}
           color="sky"
         />
@@ -48,10 +48,10 @@ export default function PatientOverview({ onNavigate, history = [] }) {
         <DashboardCard 
           title="Latest Prediction" 
           value={latestPrediction.result || 'High Risk'} 
-          subtitle="Demo assessment"
+          subtitle="Clinical assessment"
           icon={ShieldAlert}
           color="rose"
-          badge={<StatusBadge type="demo-model" />}
+          badge={<StatusBadge type="ai-model" text="ML Model" />}
         />
 
         <DashboardCard 
@@ -184,7 +184,7 @@ export default function PatientOverview({ onNavigate, history = [] }) {
                   <td className="py-3.5 px-4 text-slate-300">{row.date}</td>
                   <td className="py-3.5 px-4 font-semibold text-rose-400">{row.result || 'High Risk'}</td>
                   <td className="py-3.5 px-4">
-                    <StatusBadge type="demo-model" text="Demo Model" />
+                    <StatusBadge type="ai-model" text={row.model || 'RandomForest Model'} />
                   </td>
                   <td className="py-3.5 px-4 text-right">
                     <button

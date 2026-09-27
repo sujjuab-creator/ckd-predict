@@ -9,9 +9,9 @@ export default function PatientProfile({ onNavigate }) {
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   // Form state
-  const [fullName, setFullName] = useState(currentUser?.name || 'Johnathan Doe');
-  const [email, setEmail] = useState(currentUser?.email || 'patient@ckdpredict.com');
-  const [patientId, setPatientId] = useState(currentUser?.mrn || 'PAT-884920');
+  const [fullName, setFullName] = useState(currentUser?.name || 'Patient User');
+  const [email, setEmail] = useState(currentUser?.email || '');
+  const [patientId, setPatientId] = useState(currentUser?.mrn || 'PAT-0001');
   const [age, setAge] = useState(currentUser?.age || 56);
   const [gender, setGender] = useState(currentUser?.gender || 'Male');
 
@@ -42,7 +42,7 @@ export default function PatientProfile({ onNavigate }) {
         </div>
 
         <span className="px-3 py-1 rounded-full bg-sky-500/10 text-sky-400 border border-sky-500/30 text-xs font-bold font-mono">
-          Demo Profile
+          Patient Account
         </span>
       </div>
 
@@ -50,7 +50,7 @@ export default function PatientProfile({ onNavigate }) {
       {saveSuccess && (
         <div className="bg-emerald-500/10 border border-emerald-500/30 p-4 rounded-2xl text-emerald-400 text-xs flex items-center space-x-2">
           <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-          <span className="font-semibold">Profile changes saved locally (Frontend Demo).</span>
+          <span className="font-semibold">Profile changes saved successfully.</span>
         </div>
       )}
 

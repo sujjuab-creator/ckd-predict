@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { calculateEGFR, getCKDStage } from '../utils/ckdPredictor';
 
-export default function Home({ onNavigate, onDemoLogin }) {
+export default function Home({ onNavigate }) {
   // Interactive Risk Calculator preview state
   const [quickAge, setQuickAge] = useState(54);
   const [quickCreatinine, setQuickCreatinine] = useState(1.8);
@@ -51,37 +51,11 @@ export default function Home({ onNavigate, onDemoLogin }) {
             </button>
 
             <button
-              onClick={() => onDemoLogin('doctor')}
+              onClick={() => onNavigate('/login')}
               className="px-8 py-4 rounded-2xl glass-card hover:bg-slate-800/80 text-slate-200 border border-slate-700 font-semibold text-base transition-all flex items-center space-x-2"
             >
               <Stethoscope className="w-5 h-5 text-teal-400" />
-              <span>Doctor Portal</span>
-            </button>
-          </div>
-
-          {/* Quick Demo Access Buttons */}
-          <div className="pt-6 flex flex-wrap items-center justify-center gap-3 text-xs text-slate-400">
-            <span className="text-slate-500 font-medium">Demo Login Access:</span>
-            <button 
-              onClick={() => onDemoLogin('patient')}
-              className="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 hover:border-sky-500/50 hover:text-sky-400 transition-all flex items-center space-x-1.5"
-            >
-              <Users className="w-3.5 h-3.5 text-sky-400" />
-              <span>Login as Patient</span>
-            </button>
-            <button 
-              onClick={() => onDemoLogin('doctor')}
-              className="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 hover:border-teal-500/50 hover:text-teal-400 transition-all flex items-center space-x-1.5"
-            >
-              <Stethoscope className="w-3.5 h-3.5 text-teal-400" />
-              <span>Login as Doctor</span>
-            </button>
-            <button 
-              onClick={() => onDemoLogin('admin')}
-              className="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 hover:border-indigo-500/50 hover:text-indigo-400 transition-all flex items-center space-x-1.5"
-            >
-              <Users className="w-3.5 h-3.5 text-indigo-400" />
-              <span>Login as Admin</span>
+              <span>Sign In to System</span>
             </button>
           </div>
 
@@ -255,10 +229,10 @@ export default function Home({ onNavigate, onDemoLogin }) {
               </ul>
             </div>
             <button
-              onClick={() => onDemoLogin('patient')}
+              onClick={() => onNavigate('/login')}
               className="w-full py-3 rounded-xl bg-slate-800 hover:bg-sky-500/20 text-sky-300 border border-sky-500/30 font-semibold text-xs transition-all flex items-center justify-center space-x-2"
             >
-              <span>Login as Patient</span>
+              <span>Sign In as Patient</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>
@@ -289,10 +263,10 @@ export default function Home({ onNavigate, onDemoLogin }) {
               </ul>
             </div>
             <button
-              onClick={() => onDemoLogin('doctor')}
+              onClick={() => onNavigate('/login')}
               className="w-full py-3 rounded-xl bg-teal-500/10 hover:bg-teal-500/20 text-teal-300 border border-teal-500/30 font-semibold text-xs transition-all flex items-center justify-center space-x-2"
             >
-              <span>Login as Doctor</span>
+              <span>Sign In as Doctor</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>
@@ -323,10 +297,10 @@ export default function Home({ onNavigate, onDemoLogin }) {
               </ul>
             </div>
             <button
-              onClick={() => onDemoLogin('admin')}
+              onClick={() => onNavigate('/login')}
               className="w-full py-3 rounded-xl bg-slate-800 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-semibold text-xs transition-all flex items-center justify-center space-x-2"
             >
-              <span>Login as Admin</span>
+              <span>Sign In as Admin</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>

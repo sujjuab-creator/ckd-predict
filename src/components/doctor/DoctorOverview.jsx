@@ -17,11 +17,11 @@ export default function DoctorOverview({ onNavigate }) {
     <div className="space-y-8">
       
       {/* Medical Disclaimer Banner */}
-      <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 flex items-start space-x-3 text-amber-300 text-xs">
-        <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+      <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 flex items-start space-x-3 text-slate-300 text-xs">
+        <AlertCircle className="w-5 h-5 text-sky-400 shrink-0 mt-0.5" />
         <div>
-          <span className="font-bold text-amber-400">DEMO DATA NOTICE: </span>
-          <span>Demo data is used for development purposes. This interface is not a medical diagnosis system.</span>
+          <span className="font-bold text-sky-400">Clinical System Notice: </span>
+          <span>This system provides an AI-assisted CKD risk prediction based on supplied data and is not a medical diagnosis. Results should be reviewed by a qualified healthcare professional.</span>
         </div>
       </div>
 
@@ -30,9 +30,6 @@ export default function DoctorOverview({ onNavigate }) {
         <div>
           <div className="flex items-center space-x-2">
             <h1 className="text-2xl sm:text-3xl font-extrabold text-white">Doctor Clinical Dashboard</h1>
-            <span className="px-2.5 py-0.5 rounded-full bg-teal-500/20 text-teal-400 border border-teal-500/30 text-[11px] font-bold">
-              DEMO MODE
-            </span>
           </div>
           <p className="text-xs sm:text-sm text-slate-400 mt-1">
             Review patient information and prediction activity.
@@ -57,7 +54,7 @@ export default function DoctorOverview({ onNavigate }) {
             <p className="text-xs text-slate-400 font-medium">Total Patients</p>
             <div className="flex items-baseline space-x-2 mt-1">
               <span className="text-2xl font-extrabold text-white font-mono">{totalPatients}</span>
-              <span className="text-[10px] text-teal-400 font-semibold">(Demo Roster)</span>
+              <span className="text-[10px] text-teal-400 font-semibold">(Registered)</span>
             </div>
           </div>
           <div className="w-12 h-12 rounded-xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center text-teal-400">
@@ -129,7 +126,7 @@ export default function DoctorOverview({ onNavigate }) {
               <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-teal-400 transition-colors" />
             </div>
             <h3 className="font-bold text-sm text-white group-hover:text-teal-400 transition-colors">Search Patients</h3>
-            <p className="text-xs text-slate-400 mt-1">Find demo patients by ID, Name, or Email</p>
+            <p className="text-xs text-slate-400 mt-1">Find patient records by ID, Name, or Email</p>
           </button>
 
           <button
@@ -182,7 +179,7 @@ export default function DoctorOverview({ onNavigate }) {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div>
             <h2 className="text-lg font-bold text-white">Recent Patients</h2>
-            <p className="text-xs text-slate-400">Latest active demo patient records in your clinical list</p>
+            <p className="text-xs text-slate-400">Latest active patient records in your clinical list</p>
           </div>
           <button
             onClick={() => onNavigate('/doctor/patients')}

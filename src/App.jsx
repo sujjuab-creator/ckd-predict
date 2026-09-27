@@ -14,7 +14,7 @@ import PdfReportModal from './components/PdfReportModal';
 import { predictCKD } from './utils/ckdPredictor';
 
 function MainApp() {
-  const { currentUser, quickDemoLogin } = useAuth();
+  const { currentUser } = useAuth();
   const [currentPath, setCurrentPath] = useState(window.location.pathname);
 
   // Active Standalone Assessment Prediction Result
@@ -55,11 +55,6 @@ function MainApp() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleDemoLogin = (role) => {
-    const redirectPath = quickDemoLogin(role);
-    navigateTo(redirectPath);
-  };
-
   const handleAssessmentSubmit = (formData) => {
     const result = predictCKD(formData);
     setActiveAssessmentResult(result);
@@ -81,7 +76,10 @@ function MainApp() {
 
     if (path === '/signup') {
       return (
-        <Signup onNavigate={navigateTo} />
+        <Login 
+          initialRole="patient"
+          onNavigate={navigateTo}
+        />
       );
     }
 
@@ -149,7 +147,7 @@ function MainApp() {
     }
 
     // Default Home view (path '/' or unrecognized)
-    return <Home onNavigate={navigateTo} onDemoLogin={handleDemoLogin} />;
+    return <Home onNavigate={navigateTo} />;
   };
 
   return (

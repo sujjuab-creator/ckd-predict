@@ -12,10 +12,15 @@ const API_BASE_URL = RAW_BASE_URL.replace(/\/+$/, '').endsWith('/api')
  */
 async function fetchAPI(endpoint, options = {}) {
   const url = `${API_BASE_URL}${endpoint}`;
+  const token = localStorage.getItem('ckd_token');
   const defaultHeaders = {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
   };
+
+  if (token) {
+    defaultHeaders['Authorization'] = `Bearer ${token}`;
+  }
 
   const config = {
     ...options,
@@ -64,6 +69,53 @@ export const apiService = {
     return await fetchAPI('/auth/login', {
       method: 'POST',
       body: JSON.stringify(credentials),
+    });
+  },
+
+  async changePassword(newPassword) {
+    return await fetchAPI('/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify({ new_password: newPassword }),
+    });
+  },
+
+  // 2b. Admin User Management
+  async getUsers(params = {}) {
+    const query = new URLSearchParams(params).toString();
+    const endpoint = query ? `/admin/users?${query}` : '/admin/users';
+    return await fetchAPI(endpoint, { method: 'GET' });
+  },
+
+  async createUser(userData) {
+    return await fetchAPI('/admin/users', {
+      method: 'POST',
+      body: JSON.stringify(userData),
+    });
+  },
+
+  async updateUser(userId, userData) {
+    return await fetchAPI(`/admin/users/${userId}`, {
+      method: 'PUT',
+      body: JSON.stringify(userData),
+    });
+  },
+
+  async resetUserPassword(userId, newPassword) {
+    return await fetchAPI(`/admin/users/${userId}/reset-password`, {
+      method: 'POST',
+      body: JSON.stringify({ new_password: newPassword }),
+    });
+  },
+
+  async toggleUserStatus(userId) {
+    return await fetchAPI(`/admin/users/${userId}/toggle-status`, {
+      method: 'POST',
+    });
+  },
+
+  async deleteUser(userId) {
+    return await fetchAPI(`/admin/users/${userId}`, {
+      method: 'DELETE',
     });
   },
 

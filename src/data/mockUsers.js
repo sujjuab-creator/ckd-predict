@@ -1,10 +1,10 @@
-// Mock Users Data for Admin Management (Demo Data Only)
+// Initial Clinical Users Data for Admin Management System
 
 export const MOCK_USERS = [
   {
     id: 'USR-001',
     name: 'Johnathan Doe',
-    email: 'patient@ckdpredict.com',
+    email: 'j.doe@ckdpredict.com',
     role: 'patient',
     status: 'Active',
     createdDate: '2026-01-15',
@@ -13,7 +13,7 @@ export const MOCK_USERS = [
   {
     id: 'USR-002',
     name: 'Dr. Aris Thorne',
-    email: 'doctor@ckdpredict.com',
+    email: 'aris.thorne@ckdpredict.com',
     role: 'doctor',
     status: 'Active',
     createdDate: '2026-01-10',
@@ -23,7 +23,7 @@ export const MOCK_USERS = [
   {
     id: 'USR-003',
     name: 'Dr. Elena Rostova',
-    email: 'admin@ckdpredict.com',
+    email: 'elena.rostova@ckdpredict.com',
     role: 'admin',
     status: 'Active',
     createdDate: '2026-01-01',

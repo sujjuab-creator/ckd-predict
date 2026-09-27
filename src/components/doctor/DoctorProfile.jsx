@@ -10,7 +10,7 @@ export default function DoctorProfile({ onNavigate }) {
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
     name: currentUser?.name || 'Dr. Aris Thorne',
-    email: currentUser?.email || 'doctor@ckdpredict.com',
+    email: currentUser?.email || '',
     doctorId: currentUser?.license || currentUser?.id || 'DOC-001',
     department: currentUser?.specialty || 'Nephrology & Renal Medicine',
     hospital: currentUser?.hospital || 'St. Jude Kidney & Metabolic Institute',
@@ -34,15 +34,6 @@ export default function DoctorProfile({ onNavigate }) {
 
   return (
     <div className="space-y-8 max-w-4xl mx-auto">
-      
-      {/* Disclaimer Banner */}
-      <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 flex items-start space-x-3 text-amber-300 text-xs">
-        <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
-        <div>
-          <span className="font-bold text-amber-400">DEMO PROFILE: </span>
-          <span>Profile edits are retained in local frontend state for demonstration purposes.</span>
-        </div>
-      </div>
 
       {/* Header */}
       <div>

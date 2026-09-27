@@ -3,7 +3,7 @@ import { UserCheck, Stethoscope, Lock, Mail, User, Activity, AlertCircle, CheckC
 import { useAuth } from '../context/AuthContext';
 
 export default function Signup({ onNavigate }) {
-  const { signupDemo } = useAuth();
+  const { signup } = useAuth();
   
   const [role, setRole] = useState('patient');
   const [name, setName] = useState('');
@@ -13,14 +13,14 @@ export default function Signup({ onNavigate }) {
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setSuccessMessage('');
 
-    const result = signupDemo({ name, email, password, confirmPassword, role });
+    const result = await signup({ name, email, password, confirmPassword, role });
     if (result.success) {
-      setSuccessMessage('Demo account created successfully.');
+      setSuccessMessage('Account registered successfully.');
       setTimeout(() => {
         onNavigate('login');
       }, 1500);
@@ -165,7 +165,7 @@ export default function Signup({ onNavigate }) {
             type="submit"
             className="w-full py-3 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold text-sm shadow-lg shadow-sky-500/20 transition-all mt-2"
           >
-            Create Demo {role.toUpperCase()} Account
+            Register {role.toUpperCase()} Account
           </button>
         </form>
 
@@ -183,3 +183,4 @@ export default function Signup({ onNavigate }) {
     </div>
   );
 }
+

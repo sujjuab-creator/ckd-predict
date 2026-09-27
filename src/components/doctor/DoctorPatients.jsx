@@ -39,11 +39,11 @@ export default function DoctorPatients({ onNavigate }) {
     <div className="space-y-8">
       
       {/* Disclaimer Banner */}
-      <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 flex items-start space-x-3 text-amber-300 text-xs">
-        <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+      <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 flex items-start space-x-3 text-slate-300 text-xs">
+        <AlertCircle className="w-5 h-5 text-sky-400 shrink-0 mt-0.5" />
         <div>
-          <span className="font-bold text-amber-400">DEMO PATIENT DATA: </span>
-          <span>This database contains fictional demo records for software evaluation. Do not use for real clinical decisions.</span>
+          <span className="font-bold text-sky-400">Clinical System Notice: </span>
+          <span>This system provides an AI-assisted CKD risk prediction based on supplied data and is not a medical diagnosis. Results should be reviewed by a qualified healthcare professional.</span>
         </div>
       </div>
 
@@ -51,7 +51,7 @@ export default function DoctorPatients({ onNavigate }) {
       <div>
         <h1 className="text-2xl sm:text-3xl font-extrabold text-white">Patient Roster & Search</h1>
         <p className="text-xs sm:text-sm text-slate-400 mt-1">
-          Search and filter clinical demo patient records by ID, Name, Email, or Risk Result.
+          Search and filter clinical patient records by ID, Name, Email, or Risk Result.
         </p>
       </div>
 
@@ -120,7 +120,7 @@ export default function DoctorPatients({ onNavigate }) {
           </div>
 
           <div className="text-xs text-slate-400">
-            Showing <strong className="text-white font-mono">{filteredPatients.length}</strong> of <strong className="text-slate-300 font-mono">{MOCK_PATIENTS.length}</strong> demo patients
+            Showing <strong className="text-white font-mono">{filteredPatients.length}</strong> of <strong className="text-slate-300 font-mono">{MOCK_PATIENTS.length}</strong> patients
           </div>
         </div>
 
@@ -130,15 +130,15 @@ export default function DoctorPatients({ onNavigate }) {
       <div className="glass-panel rounded-3xl p-6 border border-slate-800 space-y-4">
         <h2 className="text-base font-bold text-white flex items-center space-x-2">
           <Users className="w-5 h-5 text-teal-400" />
-          <span>Demo Patient Roster</span>
+          <span>Patient Roster</span>
         </h2>
 
         {filteredPatients.length === 0 ? (
           <div className="text-center py-12 space-y-3 bg-slate-900/50 rounded-2xl border border-slate-800">
             <Users className="w-10 h-10 text-slate-600 mx-auto" />
-            <p className="text-sm font-semibold text-slate-300">No matching demo patients found</p>
+            <p className="text-sm font-semibold text-slate-300">No matching patients found</p>
             <p className="text-xs text-slate-500 max-w-sm mx-auto">
-              Try adjusting your search terms or clearing filters to see all demo patient records.
+              Try adjusting your search terms or clearing filters to see all patient records.
             </p>
             <button
               onClick={handleClear}

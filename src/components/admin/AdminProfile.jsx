@@ -9,8 +9,8 @@ export default function AdminProfile({ onNavigate }) {
 
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
-    name: currentUser?.name || 'Dr. Elena Rostova',
-    email: currentUser?.email || 'admin@ckdpredict.com',
+    name: currentUser?.name || 'System Administrator',
+    email: currentUser?.email || '',
     adminId: currentUser?.id || 'ADM-001',
     role: 'Chief Administrator',
     department: currentUser?.department || 'Medical Data Administration',
@@ -34,15 +34,6 @@ export default function AdminProfile({ onNavigate }) {
 
   return (
     <div className="space-y-8 max-w-4xl mx-auto">
-      
-      {/* Disclaimer Banner */}
-      <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 flex items-start space-x-3 text-amber-300 text-xs">
-        <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
-        <div>
-          <span className="font-bold text-amber-400">DEMO PROFILE: </span>
-          <span>Profile changes are saved in local frontend state for demonstration.</span>
-        </div>
-      </div>
 
       {/* Header */}
       <div>

@@ -4,55 +4,12 @@ import { MOCK_PREDICTIONS } from './mockPredictions';
 
 export { MOCK_PATIENTS, MOCK_PREDICTIONS };
 export const INITIAL_PATIENTS = MOCK_PATIENTS;
-export const HISTORICAL_PREDICTIONS_DEMO = MOCK_PREDICTIONS;
-
-export const DEMO_USERS = {
-  patient: {
-    id: 'pat-001',
-    name: 'Johnathan Doe',
-    email: 'patient@ckdpredict.com',
-    password: 'patient123',
-    role: 'patient',
-    mrn: 'MRN-884920',
-    age: 56,
-    gender: 'Male',
-    phone: '+1 (555) 234-5678',
-    assignedDoctor: 'Dr. Aris Thorne',
-    assignedDoctorId: 'doc-001',
-    address: '742 Evergreen Terrace, Springfield',
-    bloodType: 'O+',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'
-  },
-  doctor: {
-    id: 'doc-001',
-    name: 'Dr. Aris Thorne',
-    email: 'doctor@ckdpredict.com',
-    password: 'doctor123',
-    role: 'doctor',
-    specialty: 'Senior Nephrologist',
-    license: 'MD-994821-NY',
-    hospital: 'St. Jude Kidney & Metabolic Institute',
-    phone: '+1 (555) 987-6543',
-    patientsCount: 42,
-    avatar: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=150&auto=format&fit=crop&q=80'
-  },
-  admin: {
-    id: 'adm-001',
-    name: 'Dr. Elena Rostova',
-    email: 'admin@ckdpredict.com',
-    password: 'admin123',
-    role: 'admin',
-    department: 'Chief Medical Data Officer',
-    phone: '+1 (555) 321-7654',
-    avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80'
-  }
-};
-
+export const INITIAL_PREDICTIONS = MOCK_PREDICTIONS;
 export const INITIAL_DOCTORS = [
   {
     id: 'doc-001',
     name: 'Dr. Aris Thorne',
-    email: 'doctor@ckdpredict.com',
+    email: 'aris.thorne@ckdpredict.com',
     specialty: 'Nephrology & Renal Medicine',
     license: 'MD-994821-NY',
     hospital: 'St. Jude Kidney & Metabolic Institute',

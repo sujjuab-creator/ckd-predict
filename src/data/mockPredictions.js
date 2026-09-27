@@ -1,11 +1,11 @@
-// Mock Predictions & Reports Data for CKD Predict Doctor Portal (Demo Data Only)
+// Initial Predictions & Clinical Reports Data for CKD Predict Doctor Portal
 
 export const MOCK_PREDICTIONS = [
   {
     id: 'PRED-201',
     patientId: 'PAT-101',
     patientName: 'Johnathan Doe',
-    patientEmail: 'patient@ckdpredict.com',
+    patientEmail: 'j.doe@ckdpredict.com',
     date: '2026-09-15',
     result: 'CKD',
     riskProbability: 0.78,

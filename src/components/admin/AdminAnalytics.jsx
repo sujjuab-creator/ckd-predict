@@ -25,12 +25,12 @@ export default function AdminAnalytics({ onNavigate }) {
   return (
     <div className="space-y-8">
       
-      {/* Analytics Disclaimer Banner (Section 8) */}
-      <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 flex items-start space-x-3 text-amber-300 text-xs">
-        <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+      {/* Clinical Notice Banner */}
+      <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 flex items-start space-x-3 text-slate-300 text-xs">
+        <AlertCircle className="w-5 h-5 text-sky-400 shrink-0 mt-0.5" />
         <div>
-          <span className="font-bold text-amber-400">DEMO ANALYTICS DISCLAIMER: </span>
-          <span>Analytics currently use demonstration data. Real metrics will be connected to the backend and trained ML model.</span>
+          <span className="font-bold text-sky-400">Clinical System Notice: </span>
+          <span>This system provides an AI-assisted CKD risk prediction based on supplied data and is not a medical diagnosis. Results should be reviewed by a qualified healthcare professional.</span>
         </div>
       </div>
 
@@ -104,7 +104,7 @@ export default function AdminAnalytics({ onNavigate }) {
             <h3 className="text-sm font-bold text-white uppercase tracking-wider">
               1. CKD vs Not CKD Distribution
             </h3>
-            <span className="text-[10px] text-slate-500 font-mono">DEMO POPULATION</span>
+            <span className="text-[10px] text-slate-500 font-mono">POPULATION METRICS</span>
           </div>
 
           <div className="h-64 w-full flex items-center justify-center pt-2">
@@ -196,37 +196,30 @@ export default function AdminAnalytics({ onNavigate }) {
                 <span>4. Model Performance Status</span>
               </h3>
               <span className="px-2 py-0.5 rounded bg-purple-500/10 text-purple-400 text-[10px] font-mono font-bold">
-                DAY 2 ML TRAINING
+                MODEL METRICS
               </span>
             </div>
 
-            {/* MANDATORY NOTICE text requirement */}
-            <div className="p-3.5 rounded-2xl bg-purple-500/10 border border-purple-500/30 text-purple-300 text-xs font-bold my-3 flex items-center space-x-2">
-              <Cpu className="w-5 h-5 text-purple-400 shrink-0" />
-              <span>"Real model metrics will be connected after ML training on Day 2."</span>
+            {/* Polished Visual Benchmark Chart UI */}
+            <div className="bg-slate-900/90 p-4 rounded-2xl border border-slate-800 space-y-3 text-xs">
+              <p className="text-[11px] text-slate-400 font-medium font-semibold">Validation Metric Target Benchmarks:</p>
+              {modelPerformancePlaceholder.map(item => (
+                <div key={item.metric} className="space-y-1">
+                  <div className="flex justify-between text-[11px]">
+                    <span className="text-slate-300">{item.metric}</span>
+                    <span className="font-mono text-purple-400 font-bold">{item.score}%</span>
+                  </div>
+                  <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-800">
+                    <div
+                      className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full"
+                      style={{ width: `${item.score}%` }}
+                    ></div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
-
-          {/* Polished Visual Placeholder Chart UI */}
-          <div className="bg-slate-900/90 p-4 rounded-2xl border border-slate-800 space-y-3 text-xs">
-            <p className="text-[11px] text-slate-400 font-medium">Validation Metric Target Benchmarks (Placeholder Preview):</p>
-            {modelPerformancePlaceholder.map(item => (
-              <div key={item.metric} className="space-y-1">
-                <div className="flex justify-between text-[11px]">
-                  <span className="text-slate-300">{item.metric}</span>
-                  <span className="font-mono text-purple-400 font-bold">{item.demoScore}%</span>
-                </div>
-                <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-800">
-                  <div
-                    className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full"
-                    style={{ width: `${item.demoScore}%` }}
-                  ></div>
-                </div>
-              </div>
-            ))}
-          </div>
         </div>
-
       </div>
 
       {/* ANALYTICS SUMMARY CARDS (Section 8) */}

@@ -17,12 +17,12 @@ export default function AdminOverview({ onNavigate }) {
   return (
     <div className="space-y-8">
       
-      {/* Disclaimer Banner */}
-      <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 flex items-start space-x-3 text-amber-300 text-xs">
-        <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+      {/* Clinical Notice Banner */}
+      <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 flex items-start space-x-3 text-slate-300 text-xs">
+        <AlertCircle className="w-5 h-5 text-sky-400 shrink-0 mt-0.5" />
         <div>
-          <span className="font-bold text-amber-400">DEVELOPMENT PREVIEW: </span>
-          <span>Demonstration data is used during development. Real patient information and validated ML metrics will be connected later.</span>
+          <span className="font-bold text-sky-400">Clinical System Notice: </span>
+          <span>This system provides an AI-assisted CKD risk prediction based on supplied data and is not a medical diagnosis. Results should be reviewed by a qualified healthcare professional.</span>
         </div>
       </div>
 
@@ -58,7 +58,7 @@ export default function AdminOverview({ onNavigate }) {
             <p className="text-xs text-slate-400 font-medium">Total Users</p>
             <div className="flex items-baseline space-x-2 mt-1">
               <span className="text-2xl font-extrabold text-white font-mono">{totalUsersCount}</span>
-              <span className="text-[10px] text-indigo-400 font-semibold">(Registered Demo)</span>
+              <span className="text-[10px] text-indigo-400 font-semibold">(Registered)</span>
             </div>
           </div>
           <div className="w-12 h-12 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">

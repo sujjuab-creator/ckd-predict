@@ -1,10 +1,10 @@
-// Mock Patient Data for CKD Predict Doctor Portal (Demo Data Only)
+// Initial Patient Data for CKD Predict Doctor Portal
 
 export const MOCK_PATIENTS = [
   {
     id: 'PAT-101',
     name: 'Johnathan Doe',
-    email: 'patient@ckdpredict.com',
+    email: 'j.doe@ckdpredict.com',
     age: 56,
     gender: 'Male',
     mrn: 'MRN-884920',

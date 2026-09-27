@@ -67,17 +67,17 @@ export default function DoctorPatientDetails({ patientId, onNavigate }) {
           <span>Back to Patients Roster</span>
         </button>
 
-        <span className="px-3 py-1 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 text-xs font-bold w-fit">
-          DEMO PATIENT RECORD
+        <span className="px-3 py-1 rounded-full bg-teal-500/10 text-teal-400 border border-teal-500/20 text-xs font-bold w-fit">
+          PATIENT RECORD
         </span>
       </div>
 
-      {/* Demo Disclaimer */}
-      <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 flex items-start space-x-3 text-amber-300 text-xs">
-        <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+      {/* Clinical Disclaimer */}
+      <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 flex items-start space-x-3 text-slate-300 text-xs">
+        <AlertCircle className="w-5 h-5 text-sky-400 shrink-0 mt-0.5" />
         <div>
-          <span className="font-bold text-amber-400">DEMO INFORMATION: </span>
-          <span>All patient profile details and lab findings are synthetic demonstration data.</span>
+          <span className="font-bold text-sky-400">Clinical System Notice: </span>
+          <span>This system provides an AI-assisted CKD risk prediction based on supplied data and is not a medical diagnosis. Results should be reviewed by a qualified healthcare professional.</span>
         </div>
       </div>
 
@@ -178,9 +178,9 @@ export default function DoctorPatientDetails({ patientId, onNavigate }) {
         <div className="flex items-center justify-between">
           <h2 className="text-base font-bold text-white flex items-center space-x-2">
             <FileText className="w-5 h-5 text-teal-400" />
-            <span>Clinical Information & Demo Biomarkers</span>
+            <span>Clinical Information & Biomarkers</span>
           </h2>
-          <span className="text-[10px] text-slate-400 font-mono">DEMO DATA</span>
+          <span className="text-[10px] text-slate-400 font-mono">LAB VALUES</span>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 text-xs">
