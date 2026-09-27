@@ -16,9 +16,10 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
 
-    # Enable CORS for frontend origin (http://localhost:5173)
-    cors_origin = app.config.get('CORS_ORIGIN', 'http://localhost:5173')
-    CORS(app, resources={r"/api/*": {"origins": [cors_origin, "http://localhost:5173", "http://127.0.0.1:5173"]}}, supports_credentials=True)
+    # Enable CORS for frontend origin
+    cors_origin = os.getenv('FRONTEND_URL') or app.config.get('CORS_ORIGIN', 'http://localhost:5173')
+    allowed_origins = [cors_origin, "http://localhost:5173", "http://127.0.0.1:5173"]
+    CORS(app, resources={r"/api/*": {"origins": list(set(allowed_origins))}}, supports_credentials=True)
 
     # Initialize extensions
     db.init_app(app)
@@ -30,13 +31,22 @@ def create_app():
     app.register_blueprint(analytics_bp)
     app.register_blueprint(reports_bp)
 
-    # 1. Health Check API
+    # 1. Health Check API (No auth required)
     @app.route('/api/health', methods=['GET'])
     def health():
+        db_status = "connected"
+        try:
+            db.session.execute(db.select(1))
+        except Exception:
+            db_status = "disconnected"
+
         return jsonify({
-            "status": "ok",
-            "service": "CKD Prediction API"
+            "success": True,
+            "status": "ok" if db_status == "connected" else "degraded",
+            "service": "CKD Prediction API",
+            "database": db_status
         }), 200
+
 
     # Custom Error Handlers
     @app.errorhandler(404)

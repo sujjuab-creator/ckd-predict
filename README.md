@@ -262,7 +262,7 @@ npm run dev
 ---
 
 ## 21. Limitations
-- PDF report files are currently stored on local server disk (`backend/reports_pdf/`).
+- PDF report files are currently stored on local server disk (`backend/reports_pdf/`). Cloud platforms may use ephemeral filesystems. For production-scale deployment, generated PDFs should eventually be moved to persistent object storage.
 - The ML model is trained on a single cohort dataset (1,659 records) and should be evaluated on broader demographics before clinical deployment.
 
 ---
@@ -271,3 +271,54 @@ npm run dev
 - Cloud object storage integration (AWS S3 / GCP Storage) for patient PDF reports.
 - Support for multi-center clinical validation datasets.
 - OAuth2 / JWT stateless token authentication.
+
+---
+
+## 23. CLOUD DEPLOYMENT GUIDE
+To deploy **CKD PREDICT** to production cloud platforms (e.g., Render, Railway, AWS App Runner, Vercel, Netlify):
+
+1. **Deploy Cloud MySQL Database**:
+   - Provision a MySQL-compatible database instance (e.g., AWS RDS, PlanetScale, Aiven MySQL).
+   - Note down the database connection string: `mysql+pymysql://username:password@host:3306/dbname`.
+
+2. **Deploy Flask Backend**:
+   - Push backend code repository to cloud PaaS (e.g., Render, Railway, Heroku).
+   - Set Build Command: `pip install -r backend/requirements.txt`.
+   - Set Start Command: `gunicorn -w 4 -b 0.0.0.0:$PORT app:app` (navigating into `backend/` or executing from root `gunicorn --gunicorn-file ...`).
+
+3. **Configure Backend Environment Variables**:
+   - `DATABASE_URL`: Cloud MySQL Connection String
+   - `SECRET_KEY`: Random 64-character secret
+   - `FLASK_ENV`: `production`
+   - `FRONTEND_URL`: Production Frontend Origin URL (e.g., `https://ckd-predict.vercel.app`)
+   - `CORS_ORIGIN`: Production Frontend Origin URL
+
+4. **Deploy React Frontend**:
+   - Connect repository to Vercel, Netlify, or Cloudflare Pages.
+   - Set Build Command: `npm run build`.
+   - Set Output Directory: `dist`.
+
+5. **Configure Frontend Environment Variable**:
+   - `VITE_API_BASE_URL`: Deployed backend URL (e.g., `https://ckd-predict-api.onrender.com`).
+
+6. **Configure CORS**:
+   - Verify backend `FRONTEND_URL` matches the deployed frontend URL exactly.
+
+7. **Verify Deployment Health**:
+   - Perform HTTP GET request to `https://ckd-predict-api.onrender.com/api/health`.
+   - Verify response: `{"success": true, "status": "ok", "service": "CKD Prediction API"}`.
+
+8. **Test User Authentication**:
+   - Register patient/doctor account and test login.
+
+9. **Test Risk Prediction**:
+   - Submit sample clinical parameters and verify prediction generation & database persistence.
+
+10. **Test SHAP Feature Attribution**:
+    - Verify live TreeExplainer feature explanation rendering.
+
+11. **Test Medical PDF Report Generation**:
+    - Click "Generate Medical Report" and test PDF streaming download.
+
+> *Deployment-ready; production cloud credentials and hosting setup still required.*
+
