@@ -51,6 +51,25 @@ pip install -r requirements.txt
    CORS_ORIGIN=http://localhost:5173
    ```
 
+### Aiven MySQL (Render production)
+Paste the Aiven **Service URI** into `DATABASE_URL` unchanged, e.g.
+`mysql://avnadmin:<password>@<host>.aivencloud.com:<port>/defaultdb?ssl-mode=REQUIRED`.
+
+PyMySQL does not accept the `ssl-mode` option, so `database_config.py` normalises the URL before
+the engine is created: `mysql://` uses the PyMySQL driver, `ssl-mode` (and `ssl-ca`/`ssl-cert`/`ssl-key`)
+are removed from the URL, and TLS is configured through an `ssl.SSLContext` in the engine's
+`connect_args`. SSL is never switched off unless the URL explicitly says `ssl-mode=DISABLED`.
+
+| `ssl-mode` | Behaviour |
+|---|---|
+| `REQUIRED` (Aiven default), `PREFERRED` | TLS 1.2+ encrypted connection. If `DATABASE_SSL_CA` is set, the server certificate is also verified against it. |
+| `VERIFY_CA` | Encrypted + certificate must chain to `DATABASE_SSL_CA` (or the system trust store). |
+| `VERIFY_IDENTITY` | `VERIFY_CA` + certificate must match the host name. |
+
+Optional (recommended): set `DATABASE_SSL_CA` to Aiven's CA certificate — either the path to
+`ca.pem` or the PEM text itself (Aiven console → service → *CA certificate*). It is public, not a secret.
+Local `mysql+pymysql://...@localhost` URLs without SSL options, and SQLite, are used unchanged.
+
 ---
 
 ## ▶️ Starting the Backend Server
