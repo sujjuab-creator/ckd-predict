@@ -165,7 +165,8 @@ There is **no default admin password**. On startup, if no admin account exists, 
 `ADMIN_EMAIL`, `ADMIN_PASSWORD` (required, at least 8 characters) and optional `ADMIN_NAME`.
 - Production (`FLASK_ENV=production`): if no admin exists and `ADMIN_PASSWORD` is missing/too short, startup stops with a clear configuration error (the password is never printed).
 - Development/testing: the admin is simply not created and a warning is printed.
-- An existing admin is never modified or reset at startup; change its password from the Admin Settings page.
+- A second admin is never created. If an admin already exists and its email matches `ADMIN_EMAIL` (case-insensitive), startup sets its password to `ADMIN_PASSWORD` (when at least 8 characters) and keeps it `role=admin`, `status=Active`. If the email does not match, or `ADMIN_PASSWORD` is not set, the existing admin is left unchanged.
+- Because of this, while `ADMIN_EMAIL`/`ADMIN_PASSWORD` are set for the existing admin, a password changed in the Admin Settings page is reset to `ADMIN_PASSWORD` on the next restart. Change the environment variable instead, or remove `ADMIN_PASSWORD` after the first deploy to manage the password from the app.
 
 ---
 

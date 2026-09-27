@@ -8,7 +8,7 @@ from config import Config
 from extensions import db
 from models.user import User
 import models  # noqa: F401  (registers all tables, incl. email_otps & password_reset_tokens)
-from utils.security import hash_password
+from utils.security import hash_password, verify_password
 
 from routes.auth import auth_bp
 from routes.admin import admin_bp
@@ -94,30 +94,68 @@ class AdminConfigurationError(RuntimeError):
 MIN_ADMIN_PASSWORD_LENGTH = 8
 
 
+def _sync_existing_admin(admin, admin_email, admin_password):
+    """Synchronise the existing admin's password with ADMIN_PASSWORD when ADMIN_EMAIL matches."""
+    if (admin.email or '').strip().lower() != admin_email:
+        print('[INFO] System Administrator already exists; ADMIN_EMAIL does not match it, so it was left unchanged.')
+        return
+    if not _admin_password_is_valid(admin_password):
+        if admin_password.strip():
+            print(f'[WARNING] ADMIN_PASSWORD is shorter than {MIN_ADMIN_PASSWORD_LENGTH} characters; '
+                  'the existing System Administrator password was NOT changed.')
+        return
+
+    changed = False
+    if not verify_password(admin_password, admin.password_hash):
+        admin.password_hash = hash_password(admin_password)
+        admin.is_temporary_password = False
+        changed = True
+    if admin.role != 'admin':
+        admin.role = 'admin'
+        changed = True
+    if admin.status != 'Active':
+        admin.status = 'Active'
+        changed = True
+    if changed:
+        db.session.commit()
+        print(f'[INFO] System Administrator ({admin.email}) synchronised with ADMIN_EMAIL/ADMIN_PASSWORD.')
+
+
+def _admin_password_is_valid(password):
+    return bool(password and password.strip()) and len(password) >= MIN_ADMIN_PASSWORD_LENGTH
+
+
 def init_system_admin(app):
     """
     Ensure exactly one System Administrator account exists on initialization.
 
-    - If an admin already exists it is left untouched (its password is never reset here).
-    - A new admin is created only from ADMIN_EMAIL / ADMIN_PASSWORD / ADMIN_NAME.
-      There is NO default password.
-    - If ADMIN_PASSWORD is missing/empty/too short:
+    Reads ADMIN_EMAIL / ADMIN_PASSWORD / ADMIN_NAME from the environment (there is NO default password).
+
+    - If an admin already exists, another one is never created.
+      * When the existing admin's email matches ADMIN_EMAIL (case-insensitive) and ADMIN_PASSWORD is
+        valid, the admin's password is synchronised to ADMIN_PASSWORD and the account is kept
+        role='admin' / status='Active'.
+      * Otherwise (different email, or ADMIN_PASSWORD not set) the existing admin is left untouched.
+    - If no admin exists, a new admin is created from the environment. If ADMIN_PASSWORD is
+      missing/empty/too short:
         * production: raise AdminConfigurationError (startup fails with a clear message)
         * development/testing: no admin is created and a warning is printed
     The password value is never printed or logged.
     """
     is_production = (os.getenv('FLASK_ENV') or '').strip().lower() == 'production'
 
+    admin_email = (os.getenv('ADMIN_EMAIL') or 'admin@ckdpredict.com').strip().lower()
+    admin_password = os.getenv('ADMIN_PASSWORD') or ''
+    admin_name = (os.getenv('ADMIN_NAME') or 'System Administrator').strip() or 'System Administrator'
+
     with app.app_context():
         try:
-            if User.query.filter_by(role='admin').first():
-                return  # Preserve the existing single admin account as-is
+            existing_admin = User.query.filter_by(role='admin').order_by(User.id).first()
+            if existing_admin:
+                _sync_existing_admin(existing_admin, admin_email, admin_password)
+                return
 
-            admin_email = (os.getenv('ADMIN_EMAIL') or 'admin@ckdpredict.com').strip().lower()
-            admin_password = os.getenv('ADMIN_PASSWORD') or ''
-            admin_name = (os.getenv('ADMIN_NAME') or 'System Administrator').strip() or 'System Administrator'
-
-            if not admin_password.strip() or len(admin_password) < MIN_ADMIN_PASSWORD_LENGTH:
+            if not _admin_password_is_valid(admin_password):
                 message = (
                     '[CONFIGURATION ERROR] No System Administrator account exists and ADMIN_PASSWORD is not set '
                     f'(or is shorter than {MIN_ADMIN_PASSWORD_LENGTH} characters). Set ADMIN_EMAIL and a strong '
