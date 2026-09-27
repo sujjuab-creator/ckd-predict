@@ -13,21 +13,40 @@ import PredictionResultView from './components/PredictionResultView';
 import PdfReportModal from './components/PdfReportModal';
 import { predictCKD } from './utils/ckdPredictor';
 
+function getHashPath() {
+  const hash = window.location.hash;
+  if (!hash || hash === '#' || hash === '#/') return '/';
+  let path = hash.startsWith('#') ? hash.substring(1) : hash;
+  if (!path.startsWith('/')) path = '/' + path;
+  return path;
+}
+
 function MainApp() {
   const { currentUser } = useAuth();
-  const [currentPath, setCurrentPath] = useState(window.location.pathname);
+  const [currentPath, setCurrentPath] = useState(getHashPath);
 
   // Active Standalone Assessment Prediction Result
   const [activeAssessmentResult, setActiveAssessmentResult] = useState(null);
   const [showPdfReport, setShowPdfReport] = useState(false);
 
-  // Sync window history popstate
+  // Sync Hash changes & browser back/forward buttons
   useEffect(() => {
-    const handlePopState = () => {
-      setCurrentPath(window.location.pathname);
+    const handleHashChange = () => {
+      setCurrentPath(getHashPath());
     };
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
+
+    // If initial URL has a pathname instead of hash, migrate to hash route
+    if (!window.location.hash && window.location.pathname && window.location.pathname !== '/') {
+      window.location.hash = window.location.pathname;
+    }
+
+    window.addEventListener('hashchange', handleHashChange);
+    window.addEventListener('popstate', handleHashChange);
+
+    return () => {
+      window.removeEventListener('hashchange', handleHashChange);
+      window.removeEventListener('popstate', handleHashChange);
+    };
   }, []);
 
   // Protected Route Guard
@@ -49,9 +68,20 @@ function MainApp() {
     }
   }, [currentPath, currentUser]);
 
-  const navigateTo = (path) => {
-    window.history.pushState({}, '', path);
-    setCurrentPath(path);
+  const navigateTo = (targetPath) => {
+    if (!targetPath) return;
+    let cleanPath = targetPath;
+    if (cleanPath.startsWith('#')) {
+      cleanPath = cleanPath.substring(1);
+    }
+    if (!cleanPath.startsWith('/')) {
+      cleanPath = '/' + cleanPath;
+    }
+
+    if (window.location.hash !== `#${cleanPath}`) {
+      window.location.hash = cleanPath;
+    }
+    setCurrentPath(cleanPath);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
