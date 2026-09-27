@@ -108,9 +108,25 @@ Server will start on: **`http://localhost:5000`**
 - Codes, tokens and credentials are never returned in other responses or logged.
 
 ### Email configuration (environment variables only)
-See `.env.example`. `MAIL_PROVIDER=smtp` needs `MAIL_SERVER`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM`.
-For Gmail use `smtp.gmail.com:587` with TLS and a **Google App Password** (requires 2-Step Verification) — not your normal password.
-**Render free web services block outbound SMTP (ports 25/465/587)** — on the free plan use `MAIL_PROVIDER=brevo` (`BREVO_API_KEY`), `MAIL_PROVIDER=sendgrid` (`SENDGRID_API_KEY`), or `MAIL_PROVIDER=resend` (`RESEND_API_KEY`) with a verified sender address.
+**Production uses Brevo's HTTPS transactional email API** (`POST https://api.brevo.com/v3/smtp/email`).
+Render free web services block outbound SMTP (ports 25/465/587), so an HTTPS API is required there.
+
+Set these in Render → backend service → Environment (never in code or git):
+```
+MAIL_PROVIDER=brevo
+BREVO_API_KEY=<your Brevo API key>
+MAIL_FROM=<a sender address verified in Brevo>
+MAIL_FROM_NAME=CKD Predict
+FRONTEND_URL=<your frontend URL, used in password-reset links>
+```
+Brevo checklist:
+1. Create the key under **SMTP & API → API keys** (an *API key*, not the SMTP key).
+2. Verify the sender address/domain under **Senders, domains & dedicated IPs**; `MAIL_FROM` must match it.
+3. If Brevo's **Authorised IPs** security feature is enabled, requests from Render (whose outbound IPs can change) are rejected with `401 ... unrecognised IP address`. Either deactivate IP blocking for the API key or authorise Render's outbound IPs.
+
+Failures are logged safely as `Email delivery failed: provider=brevo status=<code> error=<Brevo message>` — the API key, OTP codes and passwords are redacted and never logged. The API always returns a generic error to the browser.
+
+Other providers remain available through `MAIL_PROVIDER`: `smtp` (local development or paid hosting — needs `MAIL_SERVER`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`; for Gmail use `smtp.gmail.com:587` with a Google **App Password**), `sendgrid` (`SENDGRID_API_KEY`) and `resend` (`RESEND_API_KEY`).
 If email is not configured the OTP and reset endpoints return `503` with `code: "email_not_configured"`; nothing is faked.
 
 ### Database migration
@@ -121,6 +137,7 @@ On startup the app runs `db.create_all()` (creates the new `email_otps` and `pas
 cd backend
 python -m unittest -v
 ```
+Email tests (`test_email_service.py`, `test_email_brevo.py`) mock all HTTP calls — no real email is sent and no API key is needed.
 
 ---
 

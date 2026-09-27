@@ -3,18 +3,19 @@ Outbound email for OTP codes and password-reset links.
 
 All settings come from environment variables (never hard-coded):
 
-  MAIL_PROVIDER   smtp (default) | brevo | sendgrid
-  MAIL_FROM       sender address, e.g. your-email@example.com
+  MAIL_PROVIDER   brevo (recommended for production) | smtp (default if unset) | sendgrid | resend
+  MAIL_FROM       sender address, e.g. your-email@example.com (must be a verified sender at the provider)
   MAIL_FROM_NAME  optional display name (default "CKD PREDICT")
 
   SMTP:           MAIL_SERVER, MAIL_PORT, MAIL_USERNAME, MAIL_PASSWORD,
                   MAIL_USE_TLS (STARTTLS, default true), MAIL_USE_SSL (default false)
-  Brevo:          BREVO_API_KEY      (HTTPS API, works where SMTP ports are blocked)
+  Brevo:          BREVO_API_KEY      (HTTPS transactional API v3, works where SMTP ports are blocked)
   SendGrid:       SENDGRID_API_KEY   (HTTPS API, works where SMTP ports are blocked)
   Resend:         RESEND_API_KEY     (HTTPS API, works where SMTP ports are blocked)
 
 Message bodies and credentials are never logged.
 """
+import html
 import json
 import logging
 import os
@@ -168,16 +169,20 @@ def _post_json(url, headers, payload, provider='email_api'):
         raise EmailDeliveryError(f'Email API unreachable ({err.__class__.__name__}).') from None
 
 
+BREVO_API_URL = 'https://api.brevo.com/v3/smtp/email'
+
+
 def _send_brevo(to_email, subject, text_body, html_body):
+    """Brevo transactional email API (HTTPS). The API key is sent only in the api-key header."""
     _post_json(
-        'https://api.brevo.com/v3/smtp/email',
+        BREVO_API_URL,
         {'api-key': _env('BREVO_API_KEY'), 'Content-Type': 'application/json', 'Accept': 'application/json'},
         {
             'sender': {'email': _env('MAIL_FROM'), 'name': _env('MAIL_FROM_NAME', 'CKD PREDICT')},
             'to': [{'email': to_email}],
             'subject': subject,
             'textContent': text_body,
-            'htmlContent': html_body or f'<pre>{text_body}</pre>',
+            'htmlContent': html_body or f'<pre>{html.escape(text_body or "")}</pre>',
         },
         provider='brevo',
     )
