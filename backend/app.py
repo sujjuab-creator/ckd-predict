@@ -16,6 +16,7 @@ from routes.patients import patients_bp
 from routes.predictions import predictions_bp
 from routes.analytics import analytics_bp
 from routes.reports import reports_bp
+from routes.care import patient_bp, reviews_bp, notifications_bp
 
 def auto_migrate_user_schema(app):
     """Safely adds missing hospital metadata columns to existing users table if needed."""
@@ -171,6 +172,9 @@ def create_app():
     app.register_blueprint(predictions_bp)
     app.register_blueprint(analytics_bp)
     app.register_blueprint(reports_bp)
+    app.register_blueprint(patient_bp)
+    app.register_blueprint(reviews_bp)
+    app.register_blueprint(notifications_bp)
 
     # 1. Health Check API (No auth required)
     @app.route('/api/health', methods=['GET'])

@@ -4,6 +4,7 @@ import { Card, PageHeader, Loading, EmptyState, StatCard, Disclaimer } from '../
 import { TrendChart } from '../ui/Charts';
 import { PredictionsTable, ReportsTable } from '../prediction/Tables';
 import { formatDate, riskSplit } from '../../utils/format';
+import DoctorReviewPanel from './DoctorReviewPanel';
 
 export default function DoctorPatientDetails({ onNavigate, patients, predictions, reports, patientDbId }) {
   const patient = patients.list.find((p) => Number(p.id) === Number(patientDbId));
@@ -73,6 +74,8 @@ export default function DoctorPatientDetails({ onNavigate, patients, predictions
       <Card title="Medical reports" icon={FileText} noBody>
         <ReportsTable reports={repList} onViewPrediction={(id) => onNavigate(`/doctor/result/${id}`)} />
       </Card>
+
+      <DoctorReviewPanel patientDbId={patient.id} reports={repList} />
 
       <Disclaimer />
     </div>

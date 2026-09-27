@@ -526,6 +526,32 @@ table { border-collapse: collapse; width: 100%; }
 .nav-item.active { background: var(--green-600); color: #fff; box-shadow: 0 6px 16px -8px rgba(16,185,129,.8); }
 .nav-item.active svg { opacity: 1; }
 .nav-item + .nav-item { margin-top: 3px; }
+.nav-badge { margin-left: auto; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: #ef4444; color: #fff; font-size: 11px; font-weight: 700; display: inline-grid; place-items: center; }
+
+/* Patient portal */
+.note-item { display: flex; gap: 14px; padding: 16px 22px; align-items: flex-start; }
+.note-item + .note-item { border-top: 1px solid var(--border); }
+.note-item.unread { background: var(--green-50, #ecfdf5); }
+.note-item .ic { width: 38px; height: 38px; border-radius: 11px; display: grid; place-items: center; flex-shrink: 0; }
+.note-item .ic svg { width: 18px; height: 18px; }
+.note-item .grow { flex: 1; min-width: 0; }
+.note-item .t { font-weight: 600; color: var(--navy-900); font-size: 14.5px; }
+.note-item .m { font-size: 13.5px; color: var(--text-2); margin-top: 2px; }
+.note-item .d { font-size: 12px; color: var(--muted); margin-top: 4px; }
+.review-card { padding: 22px; }
+.review-card + .review-card { border-top: 1px solid var(--border); }
+.review-text { white-space: pre-wrap; color: var(--text); font-size: 14.5px; line-height: 1.6; margin-top: 10px; }
+.review-rec { margin-top: 12px; padding: 12px 14px; border-radius: 10px; background: var(--bg-soft); font-size: 14px; white-space: pre-wrap; }
+.report-card { padding: 20px; display: grid; gap: 14px; }
+.report-card .meta { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 16px; font-size: 13.5px; }
+.report-card .meta span { display: block; color: var(--muted); font-size: 12px; }
+.report-card .meta b { color: var(--navy-900); font-weight: 600; }
+.report-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 18px; }
+.kh-section { scroll-margin-top: calc(var(--topbar-h) + 16px); }
+.kh-toc { display: flex; flex-wrap: wrap; gap: 8px; }
+.kh-list { display: grid; gap: 8px; margin-top: 10px; }
+.kh-list li { display: flex; gap: 9px; font-size: 14px; color: var(--text-2); }
+.kh-list li::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--green-500); margin-top: 8px; flex-shrink: 0; }
 .sidebar-foot { padding: 14px 12px 18px; border-top: 1px solid rgba(255,255,255,.07); }
 .sidebar-foot .nav-item:hover { background: rgba(220,38,38,.14); color: #fecaca; }
 .sidebar-status { display: flex; align-items: center; gap: 8px; font-size: 12px; padding: 10px 12px; margin-bottom: 8px; border-radius: 10px; background: rgba(255,255,255,.04); color: rgba(255,255,255,.65); }

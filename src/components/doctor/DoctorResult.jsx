@@ -2,6 +2,7 @@ import React from 'react';
 import { ArrowLeft, Gauge, UserRound } from 'lucide-react';
 import { PageHeader, Loading, ErrorState, Card, EmptyState } from '../ui/UI';
 import PredictionResult from '../prediction/PredictionResult';
+import DoctorReviewPanel from './DoctorReviewPanel';
 
 export default function DoctorResult({ onNavigate, predictions, reports, reloadAll, patientLabel, predictionId }) {
   if (predictions.loading) return <Loading label="Loading prediction…" />;
@@ -22,7 +23,7 @@ export default function DoctorResult({ onNavigate, predictions, reports, reloadA
     <div className="stack-lg">
       <PageHeader
         title="Prediction Result"
-        subtitle="Model output, SHAP explanation and report for clinical review."
+        subtitle="Model output, SHAP explanation, report and doctor review."
         actions={(
           <>
             <button className="btn btn-ghost" onClick={() => onNavigate('/doctor/history')}><ArrowLeft /> History</button>
@@ -31,6 +32,13 @@ export default function DoctorResult({ onNavigate, predictions, reports, reloadA
         )}
       />
       <PredictionResult key={pred.id} prediction={pred} patientLabel={patientLabel(pred.patient_id)} existingReportId={report?.report_id || null} />
+      <DoctorReviewPanel
+        key={`rv-${pred.id}`}
+        title="Doctor review for this prediction"
+        patientDbId={pred.patient_id}
+        predictionId={pred.id}
+        reports={reports.list.filter((r) => Number(r.patient_id) === Number(pred.patient_id))}
+      />
     </div>
   );
 }

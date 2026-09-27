@@ -12,7 +12,7 @@ import AdminDashboard from './components/AdminDashboard/AdminDashboard';
 
 // ---------------------------------------------------------------------------
 // HASH ROUTING (required for the Render Static Site deployment).
-// Paths live after "#", e.g. #/login, #/patient/history, #/doctor/patients.
+// Paths live after "#", e.g. #/login, #/patient/reports, #/doctor/patients.
 // Do not replace with BrowserRouter.
 // ---------------------------------------------------------------------------
 function getHashPath() {

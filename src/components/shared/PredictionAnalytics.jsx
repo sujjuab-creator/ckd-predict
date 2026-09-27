@@ -22,18 +22,21 @@ export default function PredictionAnalytics({ predictions }) {
   const trend = (a.prediction_trends || []).map((t) => ({ label: t.date, value: t.count }));
   const usage = (a.model_usage || []).map((m) => ({ label: m.model_name, value: m.count }));
   const bins = probabilityBins(predictions?.list || []);
+  // Doctors receive statistics for their assigned patients only (scope: "assigned_patients").
+  const assigned = a.scope === 'assigned_patients';
+  const ofAll = assigned ? "of your assigned patients' predictions" : 'of all predictions';
 
   return (
     <div className="stack-lg">
       <div className="grid-4">
-        <StatCard featured label="Total Predictions" value={total} sub="Stored in the database" icon={Activity} />
-        <StatCard label="CKD Risk" value={a.ckd_risk_predictions} sub={`${riskPct}% of all predictions`} icon={ShieldAlert} tone="red" />
-        <StatCard label="No CKD Risk" value={a.no_ckd_risk_predictions} sub={`${total ? 100 - riskPct : 0}% of all predictions`} icon={ShieldAlert} tone="green" />
-        <StatCard label="Reports Generated" value={a.total_reports} sub="PDF medical reports" icon={ChartBar} tone="navy" />
+        <StatCard featured label="Total Predictions" value={total} sub={assigned ? 'For your assigned patients' : 'Stored in the database'} icon={Activity} />
+        <StatCard label="CKD Risk" value={a.ckd_risk_predictions} sub={`${riskPct}% ${ofAll}`} icon={ShieldAlert} tone="red" />
+        <StatCard label="No CKD Risk" value={a.no_ckd_risk_predictions} sub={`${total ? 100 - riskPct : 0}% ${ofAll}`} icon={ShieldAlert} tone="green" />
+        <StatCard label="Reports Generated" value={a.total_reports} sub={assigned ? 'PDF reports for your assigned patients' : 'PDF medical reports'} icon={ChartBar} tone="navy" />
       </div>
 
       <div className="grid-main-side">
-        <Card title="Prediction trend" subtitle="Predictions per day (most recent 14 days with activity)" icon={TrendingUp}>
+        <Card title="Prediction trend" subtitle={`${assigned ? 'Predictions for your assigned patients' : 'Predictions'} per day (most recent 14 days with activity)`} icon={TrendingUp}>
           {trend.length ? <TrendChart data={trend} valueLabel="Predictions" /> : <p className="muted small">No predictions recorded yet.</p>}
         </Card>
         <Card title="Risk distribution" icon={ShieldAlert}>
@@ -48,12 +51,12 @@ export default function PredictionAnalytics({ predictions }) {
       </div>
 
       <div className="grid-main-side">
-        <Card title="Probability distribution" subtitle={`Model CKD-risk probability across ${predictions?.list?.length || 0} predictions`} icon={ChartBar}>
+        <Card title="Probability distribution" subtitle={`Model CKD-risk probability across ${predictions?.list?.length || 0} predictions${assigned ? ' for your assigned patients' : ''}`} icon={ChartBar}>
           {predictions?.loading ? <Loading /> : (predictions?.list?.length ? (
             <BarChart data={bins} color={CHART_COLORS.navy} />
           ) : <p className="muted small">No predictions to chart yet.</p>)}
         </Card>
-        <Card title="Model usage" subtitle="Which model produced saved predictions" icon={Cpu}>
+        <Card title="Model usage" subtitle={assigned ? "Which model produced your assigned patients' predictions" : 'Which model produced saved predictions'} icon={Cpu}>
           {usage.length ? <HBarList data={usage} /> : <p className="muted small">No model usage recorded yet.</p>}
         </Card>
       </div>

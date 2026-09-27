@@ -246,26 +246,89 @@ export const apiService = {
     return await fetchAPI(`/reports/${reportId}`, { method: 'GET' });
   },
 
-  async downloadReport(reportId) {
-    const downloadUrl = `${API_BASE_URL}/reports/${reportId}/download`;
+  /**
+   * Downloads a report PDF. The request carries the signed-in user's token;
+   * the backend only serves reports the user is allowed to access.
+   */
+  async downloadReport(reportId, fileName = null) {
+    const downloadUrl = `${API_BASE_URL}/reports/${encodeURIComponent(reportId)}/download`;
+    const token = localStorage.getItem('ckd_token');
     try {
-      const response = await fetch(downloadUrl);
+      const response = await fetch(downloadUrl, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
       if (!response.ok) {
-        throw new Error(`Download failed with status ${response.status}`);
+        let message = `Download failed (HTTP ${response.status}).`;
+        try {
+          const body = await response.json();
+          if (body?.error) message = body.error;
+        } catch { /* non-JSON error body */ }
+        return { ok: false, status: response.status, error: message };
       }
       const blob = await response.blob();
       const blobUrl = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = blobUrl;
-      a.download = `${reportId}.pdf`;
+      a.download = `${fileName || reportId}.pdf`;
       document.body.appendChild(a);
       a.click();
       a.remove();
       window.URL.revokeObjectURL(blobUrl);
       return { ok: true, message: 'PDF report download started' };
     } catch (err) {
-      return { ok: false, error: err.message };
+      return { ok: false, error: err.message || 'Download failed.' };
     }
+  },
+
+  // 8. Patient portal (patient role only; always scoped to the signed-in patient)
+  async getPatientProfile() {
+    return await fetchAPI('/patient/profile', { method: 'GET' });
+  },
+
+  async getPatientOverview() {
+    return await fetchAPI('/patient/overview', { method: 'GET' });
+  },
+
+  async getPatientReports() {
+    return await fetchAPI('/patient/reports', { method: 'GET' });
+  },
+
+  async getPatientReport(reportId) {
+    return await fetchAPI(`/patient/reports/${encodeURIComponent(reportId)}`, { method: 'GET' });
+  },
+
+  async getPatientReviews() {
+    return await fetchAPI('/patient/reviews', { method: 'GET' });
+  },
+
+  // 9. Doctor reviews (doctors write for their assigned patients)
+  async getReviews(patientId) {
+    return await fetchAPI(`/reviews?patient_id=${encodeURIComponent(patientId)}`, { method: 'GET' });
+  },
+
+  async createReview(review) {
+    return await fetchAPI('/reviews', { method: 'POST', body: JSON.stringify(review) });
+  },
+
+  async updateReview(reviewId, review) {
+    return await fetchAPI(`/reviews/${reviewId}`, { method: 'PUT', body: JSON.stringify(review) });
+  },
+
+  async deleteReview(reviewId) {
+    return await fetchAPI(`/reviews/${reviewId}`, { method: 'DELETE' });
+  },
+
+  // 10. Notifications (own only)
+  async getNotifications() {
+    return await fetchAPI('/notifications', { method: 'GET' });
+  },
+
+  async markNotificationRead(notificationId) {
+    return await fetchAPI(`/notifications/${notificationId}/read`, { method: 'POST' });
+  },
+
+  async markAllNotificationsRead() {
+    return await fetchAPI('/notifications/read-all', { method: 'POST' });
   },
 };
 

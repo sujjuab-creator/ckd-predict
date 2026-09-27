@@ -6,9 +6,12 @@ import ModelComparison from '../shared/ModelComparison';
 export default function DoctorAnalytics({ predictions }) {
   return (
     <div className="stack-lg">
-      <PageHeader title="Analytics" subtitle="Prediction activity and model performance from the live database." />
+      <PageHeader title="Analytics" subtitle="Prediction activity for your assigned patients only, plus overall model performance." />
       <PredictionAnalytics predictions={predictions} />
-      <h2 style={{ fontSize: 20, marginTop: 12 }}>Model performance</h2>
+      <div style={{ marginTop: 36 }}>
+        <h2 style={{ fontSize: 20 }}>Model performance</h2>
+        <p className="small muted" style={{ marginTop: 4 }}>Overall evaluation metrics of the trained models on the held-out test dataset — not specific to your patients.</p>
+      </div>
       <ModelComparison compact />
       <Disclaimer />
     </div>

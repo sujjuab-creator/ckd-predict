@@ -8,6 +8,7 @@ from extensions import db
 from models.user import User
 from models.patient import Patient
 from models.auth_tokens import EmailOTP, PasswordResetToken
+from services.notification_service import notify
 from utils.security import hash_password, verify_password, generate_token, token_required, roles_required
 from services import auth_service as auth
 from services.email_service import send_email, email_available, EmailNotConfigured, EmailDeliveryError
@@ -532,6 +533,8 @@ def change_password():
     try:
         user.password_hash = hash_password(new_password)
         user.is_temporary_password = False
+        notify(user.id, 'security', 'Password changed',
+               'Your account password was changed. If this was not you, contact the hospital administrator.')
         db.session.commit()
 
         return jsonify({
@@ -653,6 +656,8 @@ def reset_password():
         user.is_temporary_password = False
         record.used = True
         PasswordResetToken.query.filter_by(user_id=user.id, used=False).update({'used': True})
+        notify(user.id, 'security', 'Password reset',
+               'Your password was reset using an email link. If this was not you, contact the hospital administrator.')
         db.session.commit()
     except (OperationalError, DatabaseError):
         db.session.rollback()

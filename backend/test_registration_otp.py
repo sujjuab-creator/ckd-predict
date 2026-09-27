@@ -503,7 +503,9 @@ class CoreApiRegressionTests(BaseCase):
         with self.app.app_context():
             u = User.query.filter_by(email='pred@gmail.com').first()
             rec_id = Patient.query.filter_by(user_id=u.id).first().id
-        return rec_id, self.login('pred@gmail.com', 'temp1234', 'patient')[1]['token']
+        # Predictions / reports are clinical-staff actions: use the admin token.
+        # (Patients are blocked from these endpoints -- see test_patient_portal.py.)
+        return rec_id, tok
 
     def _features(self):
         values = {f: 1.0 for f in FEATURES}
@@ -518,8 +520,8 @@ class CoreApiRegressionTests(BaseCase):
         self.assertTrue(0.0 <= data['prediction_probability'] <= 1.0)
         status, data = self.get(f'/api/patients/{rec_id}/predictions', token)
         self.assertEqual((status, data['count']), (200, 1))
-        self.assertEqual(self.get('/api/analytics')[1]['total_predictions'], 1)
-        self.assertEqual(self.get('/api/analytics/model-comparison')[0], 200)
+        self.assertEqual(self.get('/api/analytics', token)[1]['total_predictions'], 1)
+        self.assertEqual(self.get('/api/analytics/model-comparison', token)[0], 200)
 
     @unittest.skipUnless(SHAP_AVAILABLE, "report generation uses SHAP; shap package not installed in this environment")
     def test_21a_report_api_still_works(self):
@@ -534,7 +536,8 @@ class CoreApiRegressionTests(BaseCase):
             _, pred = self.post('/api/predictions', {**self._features(), 'patient_id': rec_id}, token)
             status, rep = self.post(f"/api/reports/{pred['prediction_id']}", {}, token)
             self.assertEqual(status, 201, rep)
-            res = self.client.get(f"/api/reports/{rep['report_id']}/download")
+            res = self.client.get(f"/api/reports/{rep['report_id']}/download",
+                                  headers={'Authorization': f'Bearer {token}'})
             self.assertEqual(res.status_code, 200)
             self.assertTrue(res.data.startswith(b'%PDF'))
             res.close()

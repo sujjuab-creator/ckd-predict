@@ -5,6 +5,8 @@ from sqlalchemy.exc import OperationalError, DatabaseError
 from extensions import db
 from models.prediction import Prediction
 from models.patient import Patient
+from utils.security import token_required, roles_required
+from utils.access import resolve_patient, can_access_patient, current_user, accessible_patient_ids_query, unassigned_patient_forbidden
 
 # Add ml and services directories to sys.path
 backend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
@@ -29,10 +31,16 @@ predictions_bp = Blueprint('predictions', __name__, url_prefix='/api/predictions
 
 @predictions_bp.route('', methods=['GET'])
 @predictions_bp.route('/', methods=['GET'])
+@token_required
+@roles_required('doctor', 'admin')
 def get_predictions():
-    """GET /api/predictions -> List all system predictions"""
+    """GET /api/predictions -> Admin: all predictions. Doctor: predictions of assigned patients only."""
     try:
-        predictions = Prediction.query.order_by(Prediction.created_at.desc()).all()
+        query = Prediction.query
+        scope = accessible_patient_ids_query(current_user())
+        if scope is not None:
+            query = query.filter(Prediction.patient_id.in_(scope))
+        predictions = query.order_by(Prediction.created_at.desc()).all()
         return jsonify({
             'success': True,
             'count': len(predictions),
@@ -49,12 +57,25 @@ def get_predictions():
 
 @predictions_bp.route('', methods=['POST'])
 @predictions_bp.route('/', methods=['POST'])
+@token_required
+@roles_required('doctor', 'admin')
 def create_prediction():
     """
-    POST /api/predictions -> Real ML CKD Risk Inference
+    POST /api/predictions -> Real ML CKD Risk Inference (Doctor/Admin only; patients receive 403)
     Processes patient feature data through trained Random Forest pipeline and stores in database.
     """
     data = request.get_json() or {}
+
+    # A prediction must belong to an existing patient record (never fall back to another patient)
+    patient_ref = data.get('patient_id') or data.get('patientId')
+    if not patient_ref:
+        return jsonify({'success': False, 'db_stored': False, 'error': 'patient_id is required.'}), 400
+    target = resolve_patient(patient_ref)
+    if not target:
+        return jsonify({'success': False, 'db_stored': False, 'error': f'Patient with ID {patient_ref} not found.'}), 404
+    # Doctors may only run predictions for patients assigned to them (Admin: any patient)
+    if not can_access_patient(current_user(), target):
+        return unassigned_patient_forbidden()
 
     try:
         # 1. Execute ML inference pipeline
@@ -126,6 +147,8 @@ def create_prediction():
 
 
 @predictions_bp.route('/<prediction_id>/explanation', methods=['GET', 'POST'])
+@token_required
+@roles_required('doctor', 'admin')
 def get_prediction_explanation(prediction_id):
     """
     GET/POST /api/predictions/<prediction_id>/explanation
@@ -145,6 +168,11 @@ def get_prediction_explanation(prediction_id):
             prediction_record = Prediction.query.get(int(raw_id))
     except (OperationalError, DatabaseError):
         prediction_record = None
+
+    if prediction_record is not None:
+        owner = db.session.get(Patient, prediction_record.patient_id)
+        if not can_access_patient(current_user(), owner):
+            return unassigned_patient_forbidden()
 
     if prediction_record and prediction_record.input_features:
         input_features = prediction_record.input_features

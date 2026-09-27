@@ -2,15 +2,23 @@ from flask import Blueprint, jsonify
 from sqlalchemy.exc import OperationalError, DatabaseError
 from models.patient import Patient
 from models.prediction import Prediction
+from utils.security import token_required, roles_required
+from utils.access import can_access_patient, current_user, forbidden, accessible_patient_ids_query
 
 patients_bp = Blueprint('patients', __name__, url_prefix='/api/patients')
 
 @patients_bp.route('', methods=['GET'])
 @patients_bp.route('/', methods=['GET'])
+@token_required
+@roles_required('doctor', 'admin')
 def get_patients():
-    """GET /api/patients -> List all patients"""
+    """GET /api/patients -> Admin: all patients. Doctor: only patients assigned to them."""
     try:
-        patients = Patient.query.all()
+        query = Patient.query
+        scope = accessible_patient_ids_query(current_user())
+        if scope is not None:
+            query = query.filter(Patient.id.in_(scope))
+        patients = query.all()
         return jsonify({
             'success': True,
             'count': len(patients),
@@ -26,6 +34,7 @@ def get_patients():
 
 
 @patients_bp.route('/<patient_id>', methods=['GET'])
+@token_required
 def get_patient_by_id(patient_id):
     """GET /api/patients/<patient_id> -> Get single patient details"""
     try:
@@ -38,6 +47,12 @@ def get_patient_by_id(patient_id):
 
         if not patient:
             return jsonify({'success': False, 'error': f'Patient with ID {patient_id} not found.'}), 404
+
+        # Admin: any record. Doctor: assigned patients only. Patient: own record only.
+        if not can_access_patient(current_user(), patient):
+            if current_user().role == 'doctor':
+                return forbidden('This patient is not assigned to you.')
+            return forbidden('You can only access your own patient record.')
 
         return jsonify({
             'success': True,
@@ -53,6 +68,7 @@ def get_patient_by_id(patient_id):
 
 
 @patients_bp.route('/<patient_id>/predictions', methods=['GET'])
+@token_required
 def get_patient_predictions(patient_id):
     """GET /api/patients/<patient_id>/predictions -> Get predictions for patient"""
     try:
@@ -64,6 +80,12 @@ def get_patient_predictions(patient_id):
 
         if not patient:
             return jsonify({'success': False, 'error': f'Patient with ID {patient_id} not found.'}), 404
+
+        # Admin: any record. Doctor: assigned patients only. Patient: own record only.
+        if not can_access_patient(current_user(), patient):
+            if current_user().role == 'doctor':
+                return forbidden('This patient is not assigned to you.')
+            return forbidden('You can only access your own patient record.')
 
         predictions = Prediction.query.filter_by(patient_id=patient.id).all()
         return jsonify({

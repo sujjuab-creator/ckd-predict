@@ -147,3 +147,43 @@ There is **no default admin password**. On startup, if no admin account exists, 
 - Production (`FLASK_ENV=production`): if no admin exists and `ADMIN_PASSWORD` is missing/too short, startup stops with a clear configuration error (the password is never printed).
 - Development/testing: the admin is simply not created and a warning is printed.
 - An existing admin is never modified or reset at startup; change its password from the Admin Settings page.
+
+---
+
+## 🔒 Role-based access & Patient Portal
+All patient-data endpoints now require a signed-in user (`Authorization: Bearer <token>`); the backend enforces
+roles and ownership itself, independently of what the frontend shows.
+
+| Endpoint | Patient | Doctor | Admin |
+|---|---|---|---|
+| `POST /api/predictions` | **403** | assigned patients only (else 403) | ✅ |
+| `GET /api/predictions`, `GET /api/reports` | own only (`/reports`) / **403** (`/predictions`) | assigned patients only | ✅ all |
+| `POST /api/predictions/<id>/explanation`, `POST /api/reports/<prediction_id>` | **403** | assigned patients only (else 403) | ✅ |
+| `GET /api/patients` (list) | **403** | assigned patients only | ✅ all |
+| `GET /api/patients/<id>`, `/api/patients/<id>/predictions` | own record only (else 403) | assigned patients only (else 403) | ✅ |
+| `GET /api/reports/<id>`, `/api/reports/<id>/download` | own reports only (else 403) | assigned patients only (else 403) | ✅ |
+| `GET /api/patient/profile`, `/overview`, `/reports`, `/reports/<id>`, `/reviews` | ✅ own data | 403 | 403 |
+| `GET /api/reviews?patient_id=` | own reviews only | assigned patients only (+ `can_review`) | ✅ |
+| `POST /api/reviews` | **403** | assigned patients only | 403 |
+| `PUT` / `DELETE /api/reviews/<id>` | **403** | author, while still assigned | 403 |
+| `GET /api/analytics` | **403** | aggregates for assigned patients only (`scope: "assigned_patients"`) | system-wide (`scope: "system"`) |
+| `GET /api/analytics/model-comparison` | **403** | ✅ (aggregate model metrics, no patient data) | ✅ |
+| `GET /api/notifications`, `POST /api/notifications/<id>/read`, `POST /api/notifications/read-all` | own | own | own |
+
+A doctor's access is based on `patients.doctor_id` (the treating doctor set at registration or by the Admin).
+Unauthenticated requests receive `401`; a doctor requesting an unassigned patient receives `403`.
+
+`POST /api/predictions` now requires `patient_id` for an existing patient (400 / 404 otherwise) instead of
+falling back to the first patient in the database.
+
+**New tables** (created automatically by `db.create_all()`, nothing is dropped):
+- `doctor_reviews` — review text and recommendations written by the treating doctor, optionally linked to a prediction/report.
+- `notifications` — per-user in-app notifications. Created for real events only: a report is generated
+  (`report`), a doctor adds a review (`review`), a password is changed or reset (`security`). They never contain
+  passwords, OTP codes or tokens.
+
+If a report's PDF file is missing (e.g. after a redeploy on an ephemeral disk), `GET /api/reports/<id>/download`
+regenerates it from the stored prediction with the existing PDF generator.
+
+Tests: `test_patient_portal.py` covers patient isolation, doctor-to-assigned-patient scoping, the 403 on
+prediction, review permissions, analytics authorization, notifications, doctor prediction and admin management.

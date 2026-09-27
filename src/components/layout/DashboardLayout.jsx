@@ -66,6 +66,7 @@ export default function DashboardLayout({ navGroups, currentPath, onNavigate, ti
                   >
                     <Icon />
                     <span>{item.label}</span>
+                    {item.badge ? <span className="nav-badge" aria-label={`${item.badge} unread`}>{item.badge > 99 ? '99+' : item.badge}</span> : null}
                   </button>
                 );
               })}
@@ -116,7 +117,7 @@ export default function DashboardLayout({ navGroups, currentPath, onNavigate, ti
             <Alert type="warn" title="You are using a temporary password">
               Your account was created with a temporary password. Please set a new password from{' '}
               <button className="link" onClick={() => onNavigate(profilePath)}>
-                <KeyRound size={14} style={{ display: 'inline', verticalAlign: '-2px' }} /> your profile
+                <KeyRound size={14} style={{ display: 'inline', verticalAlign: '-2px' }} /> your account settings
               </button>.
             </Alert>
           )}
