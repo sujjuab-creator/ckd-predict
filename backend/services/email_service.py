@@ -16,7 +16,9 @@ All settings come from environment variables (never hard-coded):
 Message bodies and credentials are never logged.
 """
 import json
+import logging
 import os
+import re
 import smtplib
 import ssl
 import urllib.error
@@ -25,6 +27,11 @@ from email.message import EmailMessage
 from email.utils import formataddr
 
 from flask import current_app
+
+logger = logging.getLogger('ckd.email')
+
+_SECRET_ENV_KEYS = ('RESEND_API_KEY', 'BREVO_API_KEY', 'SENDGRID_API_KEY', 'MAIL_PASSWORD')
+_MAX_LOGGED_ERROR_CHARS = 500
 
 
 class EmailNotConfigured(Exception):
@@ -91,19 +98,73 @@ def _send_smtp(to_email, subject, text_body, html_body):
             server.login(_env('MAIL_USERNAME'), _env('MAIL_PASSWORD'))
             server.send_message(msg)
     except (smtplib.SMTPException, OSError) as err:
-        # Log only the error class, never credentials or message content
+        # Log only the error class / SMTP code, never credentials or message content
+        log_delivery_failure('smtp', getattr(err, 'smtp_code', None), err.__class__.__name__)
         raise EmailDeliveryError(f'SMTP delivery failed ({err.__class__.__name__}).') from None
 
 
-def _post_json(url, headers, payload):
+def _redact(text):
+    """Remove anything secret-looking from provider error text before logging."""
+    text = str(text or '')
+    for key in _SECRET_ENV_KEYS:
+        secret = _env(key)
+        if secret:
+            text = text.replace(secret, '[REDACTED]')
+    text = re.sub(r'(?i)bearer\s+[A-Za-z0-9._\-]+', 'Bearer [REDACTED]', text)
+    text = re.sub(r'\b(re|SG|xkeysib)[_.\-][A-Za-z0-9._\-]{8,}', '[REDACTED]', text)  # API-key shapes
+    text = re.sub(r'\b\d{6}\b', '[REDACTED]', text)  # never let a 6-digit code reach the logs
+    text = ' '.join(text.split())
+    return text[:_MAX_LOGGED_ERROR_CHARS]
+
+
+def _provider_error_message(raw_body):
+    """Extract the provider's error message from a JSON (or plain text) error body."""
+    if not raw_body:
+        return ''
+    try:
+        data = json.loads(raw_body)
+    except (ValueError, TypeError):
+        return raw_body
+    if isinstance(data, dict):
+        parts = []
+        for key in ('name', 'code', 'message', 'error'):
+            value = data.get(key)
+            if isinstance(value, (str, int)) and str(value) not in parts:
+                parts.append(str(value))
+            elif isinstance(value, dict) and value.get('message'):
+                parts.append(str(value['message']))
+        errors = data.get('errors')
+        if isinstance(errors, list):
+            parts.extend(str(e.get('message', e)) if isinstance(e, dict) else str(e) for e in errors[:3])
+        return ' | '.join(parts) if parts else raw_body
+    return raw_body
+
+
+def log_delivery_failure(provider, status=None, detail=''):
+    """Log safe diagnostics only: provider, HTTP status and a redacted provider message."""
+    logger.warning(
+        'Email delivery failed: provider=%s status=%s error=%s',
+        provider, status if status is not None else 'n/a', _redact(detail) or 'n/a',
+    )
+
+
+def _post_json(url, headers, payload, provider='email_api'):
     req = urllib.request.Request(url, data=json.dumps(payload).encode('utf-8'), headers=headers, method='POST')
     try:
         with urllib.request.urlopen(req, timeout=20) as resp:
             if resp.status >= 300:
+                log_delivery_failure(provider, resp.status, 'Unexpected non-success response')
                 raise EmailDeliveryError(f'Email API returned HTTP {resp.status}.')
     except urllib.error.HTTPError as err:
+        try:
+            raw = err.read(4096).decode('utf-8', errors='replace') if err.fp is not None else ''
+        except Exception:  # pragma: no cover - body is best-effort diagnostics only
+            raw = ''
+        log_delivery_failure(provider, err.code, _provider_error_message(raw) or getattr(err, 'reason', ''))
         raise EmailDeliveryError(f'Email API returned HTTP {err.code}.') from None
     except (urllib.error.URLError, OSError) as err:
+        reason = getattr(err, 'reason', None)
+        log_delivery_failure(provider, None, f'{err.__class__.__name__}: {reason}' if reason else err.__class__.__name__)
         raise EmailDeliveryError(f'Email API unreachable ({err.__class__.__name__}).') from None
 
 
@@ -118,6 +179,7 @@ def _send_brevo(to_email, subject, text_body, html_body):
             'textContent': text_body,
             'htmlContent': html_body or f'<pre>{text_body}</pre>',
         },
+        provider='brevo',
     )
 
 
@@ -134,6 +196,7 @@ def _send_sendgrid(to_email, subject, text_body, html_body):
             'subject': subject,
             'content': content,
         },
+        provider='sendgrid',
     )
 
 
@@ -151,6 +214,7 @@ def _send_resend(to_email, subject, text_body, html_body):
         'https://api.resend.com/emails',
         {'Authorization': f"Bearer {_env('RESEND_API_KEY')}", 'Content-Type': 'application/json'},
         payload,
+        provider='resend',
     )
 
 

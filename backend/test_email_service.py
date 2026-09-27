@@ -143,5 +143,92 @@ class EmailServiceTests(unittest.TestCase):
             send_email('patient@example.com', 'OTP Code', '123456')
 
 
+    @patch('urllib.request.urlopen')
+    def test_resend_http_error_logs_safe_diagnostics(self, mock_urlopen):
+        """Provider/status/message are logged; API key, auth header and OTP never are."""
+        secret = 're_live_SuperSecretKey_987654321'
+        body = json.dumps({
+            'statusCode': 403,
+            'name': 'validation_error',
+            'message': 'The gmail.com domain is not verified. Echo: Bearer ' + secret + ' code 482913',
+        }).encode('utf-8')
+        mock_urlopen.side_effect = urllib.error.HTTPError(
+            url='https://api.resend.com/emails', code=403, msg='Forbidden', hdrs={}, fp=io.BytesIO(body))
+
+        os.environ['MAIL_PROVIDER'] = 'resend'
+        os.environ['MAIL_FROM'] = 'sender@gmail.com'
+        os.environ['RESEND_API_KEY'] = secret
+
+        with self.assertLogs('ckd.email', level='WARNING') as logs:
+            with self.assertRaises(EmailDeliveryError) as cm:
+                send_email('patient@example.com', 'Your code', 'Your CKD PREDICT verification code is: 482913',
+                           '<p>482913</p>')
+
+        output = '\n'.join(logs.output)
+        self.assertIn('provider=resend', output)
+        self.assertIn('status=403', output)
+        self.assertIn('validation_error', output)
+        self.assertIn('domain is not verified', output)
+        self.assertNotIn(secret, output)
+        self.assertNotIn('SuperSecretKey', output)
+        self.assertNotIn('482913', output)          # OTP never logged
+        self.assertNotIn('Authorization', output)
+        # API response/exception behaviour unchanged
+        self.assertEqual(str(cm.exception), 'Email API returned HTTP 403.')
+
+    @patch('urllib.request.urlopen')
+    def test_resend_http_error_with_plain_text_body(self, mock_urlopen):
+        mock_urlopen.side_effect = urllib.error.HTTPError(
+            url='https://api.resend.com/emails', code=500, msg='Server Error', hdrs={},
+            fp=io.BytesIO(b'upstream failure'))
+        os.environ['MAIL_PROVIDER'] = 'resend'
+        os.environ['MAIL_FROM'] = 'sender@example.com'
+        os.environ['RESEND_API_KEY'] = 're_another_secret_value'
+        with self.assertLogs('ckd.email', level='WARNING') as logs:
+            with self.assertRaises(EmailDeliveryError):
+                send_email('patient@example.com', 'Subject', 'Body')
+        output = '\n'.join(logs.output)
+        self.assertIn('provider=resend status=500 error=upstream failure', output)
+        self.assertNotIn('re_another_secret_value', output)
+
+    @patch('urllib.request.urlopen')
+    def test_resend_network_error_logs_without_secrets(self, mock_urlopen):
+        mock_urlopen.side_effect = urllib.error.URLError('timed out')
+        os.environ['MAIL_PROVIDER'] = 'resend'
+        os.environ['MAIL_FROM'] = 'sender@example.com'
+        os.environ['RESEND_API_KEY'] = 're_network_secret_value'
+        with self.assertLogs('ckd.email', level='WARNING') as logs:
+            with self.assertRaises(EmailDeliveryError):
+                send_email('patient@example.com', 'Subject', 'Body 654321')
+        output = '\n'.join(logs.output)
+        self.assertIn('provider=resend status=n/a', output)
+        self.assertIn('URLError', output)
+        self.assertNotIn('re_network_secret_value', output)
+        self.assertNotIn('654321', output)
+
+    def test_send_otp_route_still_returns_502_on_delivery_failure(self):
+        """The public API response is unchanged: generic 502, no provider details, no OTP."""
+        os.environ['DATABASE_URL'] = 'sqlite:///:memory:'
+        os.environ['FLASK_ENV'] = 'testing'
+        from app import create_app
+        from extensions import db
+        app = create_app()
+        with app.app_context():
+            db.create_all()
+
+        def failing_sender(*_args, **_kwargs):
+            raise EmailDeliveryError('Email API returned HTTP 403.')
+
+        app.extensions['ckd_email_sender'] = failing_sender
+        res = app.test_client().post('/api/auth/send-otp', json={'email': 'new.user@gmail.com', 'purpose': 'patient_signup'})
+        self.assertEqual(res.status_code, 502)
+        data = res.get_json()
+        self.assertFalse(data['success'])
+        self.assertEqual(data['error'], 'The verification email could not be sent. Please try again later.')
+        self.assertNotIn('403', json.dumps(data))
+        with app.app_context():
+            db.session.remove()
+            db.drop_all()
+
 if __name__ == '__main__':
     unittest.main()
