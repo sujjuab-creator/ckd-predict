@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-  Users, Activity, ShieldAlert, FileText, PlusCircle, Search, Sparkles, ChartBar, ArrowRight, History, Stethoscope,
+  Users, Activity, ShieldAlert, FileText, PlusCircle, Search, Layers, ChartBar, ArrowRight, History, Stethoscope,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { Card, StatCard, Disclaimer, ErrorState } from '../ui/UI';
@@ -25,15 +25,15 @@ export default function DoctorOverview({ onNavigate, patients, predictions, repo
           <p>Review patient CKD risk predictions, explanations and reports. Predictions support — never replace — your clinical judgement.</p>
         </div>
         <div className="row wrap">
-          <button className="btn btn-ghost" onClick={() => onNavigate('/doctor/search')}><Search /> Find patient</button>
-          <button className="btn btn-primary" onClick={() => onNavigate('/doctor/predictions')}><PlusCircle /> New Prediction</button>
+          <button className="btn btn-ghost" onClick={() => onNavigate('/doctor/patients')}><Search /> Find patient</button>
+          <button className="btn btn-primary" onClick={() => onNavigate('/doctor/analysis')}><PlusCircle /> Patient Analysis</button>
         </div>
       </div>
 
       {loadError && <ErrorState message={loadError} onRetry={reloadAll} />}
 
       <div className="grid-4">
-        <StatCard featured label="Registered Patients" value={patients.list.length} sub="Patient records" icon={Users} loading={patients.loading} />
+        <StatCard featured label="My Patients" value={patients.list.length} sub="Assigned to you" icon={Users} loading={patients.loading} />
         <StatCard label="Total Predictions" value={predictions.list.length} sub="Saved predictions" icon={Activity} tone="blue" loading={predictions.loading} />
         <StatCard label="CKD Risk Results" value={split.risk} sub={`${split.noRisk} with no CKD risk`} icon={ShieldAlert} tone="red" loading={predictions.loading} />
         <StatCard label="Medical Reports" value={reports.list.length} sub="Generated PDFs" icon={FileText} tone="navy" loading={reports.loading} />
@@ -58,7 +58,7 @@ export default function DoctorOverview({ onNavigate, patients, predictions, repo
         {[
           { icon: Users, tone: 'tone-green', t: 'My Patients', s: 'Browse patient records', to: '/doctor/patients' },
           { icon: History, tone: 'tone-blue', t: 'Prediction History', s: 'All saved predictions', to: '/doctor/history' },
-          { icon: Sparkles, tone: 'tone-amber', t: 'SHAP Explanation', s: 'Factor contributions', to: '/doctor/shap' },
+          { icon: Layers, tone: 'tone-amber', t: 'Batch Analysis', s: 'Analyse a CSV / Excel file', to: '/doctor/batch' },
           { icon: FileText, tone: 'tone-navy', t: 'Medical Reports', s: 'Download PDF reports', to: '/doctor/reports' },
         ].map((q) => (
           <button key={q.t} className="card card-hover quick" onClick={() => onNavigate(q.to)}>

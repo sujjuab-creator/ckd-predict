@@ -61,6 +61,33 @@ async function fetchAPI(endpoint, options = {}) {
   };
 }
 
+/** multipart/form-data upload (the browser sets the boundary; token attached like fetchAPI). */
+async function uploadAPI(endpoint, formData) {
+  const token = localStorage.getItem('ckd_token');
+  let response;
+  try {
+    response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}`, Accept: 'application/json' } : { Accept: 'application/json' },
+      body: formData,
+    });
+  } catch (error) {
+    return {
+      ok: false,
+      status: 0,
+      data: { success: false, error: `Backend API server unreachable (${API_BASE_URL}). Please check backend server status.` },
+      message: error.message,
+    };
+  }
+  let data;
+  try {
+    data = await response.json();
+  } catch {
+    data = { success: false, error: `Unexpected response from server (HTTP ${response.status}).` };
+  }
+  return { ok: response.ok, status: response.status, data };
+}
+
 export const apiService = {
   // 1. Health Check
   async checkHealth() {
@@ -328,6 +355,40 @@ export const apiService = {
 
   async markAllNotificationsRead() {
     return await fetchAPI('/notifications/read-all', { method: 'POST' });
+  },
+
+  // 11. Doctor Patient Analysis & Batch Analysis (doctor/admin only; assigned patients enforced server-side)
+  async analyzeReport(patientId, file) {
+    const form = new FormData();
+    form.append('patient_id', patientId);
+    form.append('file', file);
+    return await uploadAPI('/doctor/analysis/report', form);
+  },
+
+  async runAnalysisPrediction(body) {
+    return await fetchAPI('/doctor/analysis/predict', { method: 'POST', body: JSON.stringify(body) });
+  },
+
+  async validateBatchFile(file) {
+    const form = new FormData();
+    form.append('file', file);
+    return await uploadAPI('/doctor/analysis/batch/validate', form);
+  },
+
+  async revalidateBatchRows(rows) {
+    return await fetchAPI('/doctor/analysis/batch/validate', { method: 'POST', body: JSON.stringify({ rows }) });
+  },
+
+  async runBatchPrediction(fileName, rows) {
+    return await fetchAPI('/doctor/analysis/batch/predict', {
+      method: 'POST',
+      body: JSON.stringify({ file_name: fileName, rows }),
+    });
+  },
+
+  async getAnalysisHistory(params = {}) {
+    const query = new URLSearchParams(Object.entries(params).filter(([, v]) => v !== '' && v != null)).toString();
+    return await fetchAPI(`/doctor/analysis/history${query ? `?${query}` : ''}`, { method: 'GET' });
   },
 };
 

@@ -29,6 +29,15 @@ except ImportError:
 
 predictions_bp = Blueprint('predictions', __name__, url_prefix='/api/predictions')
 
+
+def _model_version():
+    """Model artifact identifier stored with each prediction for auditability."""
+    try:
+        from services.analysis_service import model_version
+        return model_version()
+    except Exception:
+        return None
+
 @predictions_bp.route('', methods=['GET'])
 @predictions_bp.route('/', methods=['GET'])
 @token_required
@@ -107,7 +116,10 @@ def create_prediction():
                 prediction_result=ml_result['prediction_result'],
                 prediction_probability=ml_result['prediction_probability'],
                 model_name=ml_result['model_name'],
-                input_features=data
+                input_features=data,
+                doctor_user_id=current_user().id,
+                source='manual',
+                model_version=_model_version(),
             )
             db.session.add(prediction_record)
             db.session.commit()

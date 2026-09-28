@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  LayoutDashboard, Users, Search, PlusCircle, History, Sparkles, FileText, ChartBar, UserRound,
+  LayoutDashboard, Users, FileSearch, Layers, History, FileText, ChartBar, UserRound, Settings,
 } from 'lucide-react';
 import DashboardLayout from '../layout/DashboardLayout';
 import apiService from '../../services/api';
@@ -8,42 +8,52 @@ import { sortByDateDesc } from '../../utils/format';
 import DoctorOverview from '../doctor/DoctorOverview';
 import DoctorPatients from '../doctor/DoctorPatients';
 import DoctorPatientDetails from '../doctor/DoctorPatientDetails';
-import DoctorPredictions from '../doctor/DoctorPredictions';
+import PatientAnalysis from '../doctor/analysis/PatientAnalysis';
+import BatchAnalysis from '../doctor/analysis/BatchAnalysis';
 import DoctorHistory from '../doctor/DoctorHistory';
 import DoctorShap from '../doctor/DoctorShap';
 import DoctorResult from '../doctor/DoctorResult';
 import DoctorReports from '../doctor/DoctorReports';
 import DoctorAnalytics from '../doctor/DoctorAnalytics';
 import DoctorProfile from '../doctor/DoctorProfile';
+import DoctorSettings from '../doctor/DoctorSettings';
 
 const NAV = [
   {
     label: 'Clinical',
     items: [
-      { label: 'Overview', path: '/doctor', icon: LayoutDashboard },
-      { label: 'My Patients', path: '/doctor/patients', icon: Users },
-      { label: 'Patient Search', path: '/doctor/search', icon: Search },
-      { label: 'CKD Predictions', path: '/doctor/predictions', icon: PlusCircle, match: ['/doctor/predictions', '/doctor/result'] },
+      { label: 'Dashboard', path: '/doctor', icon: LayoutDashboard },
+      { label: 'My Patients', path: '/doctor/patients', icon: Users, match: ['/doctor/patients', '/doctor/search'] },
+      { label: 'Patient Analysis', path: '/doctor/analysis', icon: FileSearch, match: ['/doctor/analysis', '/doctor/predictions', '/doctor/result', '/doctor/shap'] },
+      { label: 'Batch Analysis', path: '/doctor/batch', icon: Layers },
       { label: 'Prediction History', path: '/doctor/history', icon: History },
-      { label: 'SHAP Explanation', path: '/doctor/shap', icon: Sparkles },
-      { label: 'Medical Reports', path: '/doctor/reports', icon: FileText },
+      { label: 'Reports', path: '/doctor/reports', icon: FileText },
       { label: 'Analytics', path: '/doctor/analytics', icon: ChartBar },
     ],
   },
-  { label: 'Account', items: [{ label: 'My Profile', path: '/doctor/profile', icon: UserRound }] },
+  {
+    label: 'Account',
+    items: [
+      { label: 'Profile', path: '/doctor/profile', icon: UserRound },
+      { label: 'Settings', path: '/doctor/settings', icon: Settings },
+    ],
+  },
 ];
 
 const TITLES = {
-  '/doctor': 'Overview',
+  '/doctor': 'Dashboard',
   '/doctor/patients': 'My Patients',
-  '/doctor/search': 'Patient Search',
-  '/doctor/predictions': 'CKD Predictions',
+  '/doctor/search': 'My Patients',
+  '/doctor/analysis': 'Patient Analysis',
+  '/doctor/predictions': 'Patient Analysis',
+  '/doctor/batch': 'Batch Analysis',
   '/doctor/result': 'Prediction Result',
   '/doctor/history': 'Prediction History',
   '/doctor/shap': 'SHAP Explanation',
-  '/doctor/reports': 'Medical Reports',
+  '/doctor/reports': 'Reports',
   '/doctor/analytics': 'Analytics',
-  '/doctor/profile': 'My Profile',
+  '/doctor/profile': 'Profile',
+  '/doctor/settings': 'Settings',
 };
 
 function useList(loader, key) {
@@ -62,8 +72,8 @@ const loadPredictions = () => apiService.getPredictions();
 const loadReports = () => apiService.getReports();
 
 /**
- * Doctor data comes from existing endpoints only:
- * GET /api/patients, /api/predictions, /api/reports, /api/analytics.
+ * Doctor data: GET /api/patients, /api/predictions, /api/reports (all scoped to assigned patients),
+ * plus Patient/Batch Analysis and unified history under /api/doctor/analysis.
  */
 export default function DoctorDashboard({ currentPath = '/doctor', onNavigate }) {
   const [patients, reloadPatients] = useList(loadPatients, 'patients');
@@ -89,13 +99,17 @@ export default function DoctorDashboard({ currentPath = '/doctor', onNavigate })
     if (base === '/doctor/patients' && param) return <DoctorPatientDetails {...ctx} patientDbId={Number(param)} />;
     if (base === '/doctor/patients') return <DoctorPatients {...ctx} />;
     if (base === '/doctor/search') return <DoctorPatients {...ctx} searchMode />;
-    if (base === '/doctor/predictions') return <DoctorPredictions {...ctx} preselectPatient={param ? Number(param) : null} />;
+    if (base === '/doctor/analysis' || base === '/doctor/predictions') {
+      return <PatientAnalysis key={`pa-${param || ''}`} {...ctx} preselectPatient={param ? Number(param) : null} />;
+    }
+    if (base === '/doctor/batch') return <BatchAnalysis {...ctx} />;
     if (base === '/doctor/result') return <DoctorResult {...ctx} predictionId={param ? Number(param) : null} />;
     if (base === '/doctor/history') return <DoctorHistory {...ctx} />;
     if (base === '/doctor/shap') return <DoctorShap {...ctx} predictionId={param ? Number(param) : null} />;
     if (base === '/doctor/reports') return <DoctorReports {...ctx} />;
     if (base === '/doctor/analytics') return <DoctorAnalytics {...ctx} />;
     if (base === '/doctor/profile') return <DoctorProfile />;
+    if (base === '/doctor/settings') return <DoctorSettings onNavigate={onNavigate} />;
     return <DoctorOverview {...ctx} />;
   };
 

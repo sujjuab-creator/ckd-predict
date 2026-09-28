@@ -168,6 +168,15 @@ There is **no default admin password**. On startup, if no admin account exists, 
 - A second admin is never created. If an admin already exists and its email matches `ADMIN_EMAIL` (case-insensitive), startup sets its password to `ADMIN_PASSWORD` (when at least 8 characters) and keeps it `role=admin`, `status=Active`. If the email does not match, or `ADMIN_PASSWORD` is not set, the existing admin is left unchanged.
 - Because of this, while `ADMIN_EMAIL`/`ADMIN_PASSWORD` are set for the existing admin, a password changed in the Admin Settings page is reset to `ADMIN_PASSWORD` on the next restart. Change the environment variable instead, or remove `ADMIN_PASSWORD` after the first deploy to manage the password from the app.
 
+### Create / reset the admin account manually
+Run from `backend/` against the database in `backend/.env` (e.g. Aiven):
+```bash
+python manage_admin.py --email admin@predict.com
+```
+You are prompted for the password (hidden input; or set `CKD_NEW_ADMIN_PASSWORD`). The existing admin is updated
+(never duplicated), or created if none exists; Patient/Doctor accounts are not touched. The password is stored only
+as a hash and never printed, and the command confirms the credentials through `/api/auth/login`.
+
 ---
 
 ## 🔒 Role-based access & Patient Portal
@@ -207,3 +216,33 @@ regenerates it from the stored prediction with the existing PDF generator.
 
 Tests: `test_patient_portal.py` covers patient isolation, doctor-to-assigned-patient scoping, the 403 on
 prediction, review permissions, analytics authorization, notifications, doctor prediction and admin management.
+
+---
+
+## 🩺 Doctor Patient Analysis & Batch Analysis
+Doctor/Admin only (patients get `403`). Doctors can only use patients assigned to them; admins keep system-wide access.
+All predictions use the existing model (`ml/predict.py`, `ml/artifacts/`). A prediction is **only** run when all 51
+model features are present and valid (`ml/feature_schema.py`) — missing values are never filled in.
+
+| Endpoint | Purpose |
+|---|---|
+| `POST /api/doctor/analysis/report` (multipart: `patient_id`, `file`) | Extract values from a report for review. Nothing is saved. |
+| `POST /api/doctor/analysis/predict` (`patient_id`, `features`, `source`, `report_reference`) | Validate and save one prediction (`source`: `single_report` or `manual`). `422` with per-field issues if incomplete/invalid. |
+| `POST /api/doctor/analysis/batch/validate` (multipart `file`, or JSON `{rows}`) | Validate a CSV/XLSX (PatientID + 51 feature columns) or corrected rows. Nothing is saved. |
+| `POST /api/doctor/analysis/batch/predict` (`file_name`, `rows`) | Re-validates every row; predicts and saves only valid rows of accessible patients; partial failures allowed. |
+| `GET /api/doctor/analysis/history` (`source`, `batch_id`, `patient_id`) | Unified history (single report, batch, manual) with patient, doctor, source and report reference. |
+
+SHAP (`POST /api/predictions/<id>/explanation`) and PDF reports (`POST /api/reports/<id>`) reuse the existing endpoints.
+
+**Report formats:** text-based PDF, TXT, CSV, XLSX, JSON (max 5 MB). Scanned/image PDFs are rejected (no OCR).
+Values reported in a different unit (e.g. creatinine in µmol/L) or with conflicting values are marked *Needs Review*
+and are not converted; anything not found is *Incomplete Data*.
+
+**Validation statuses:** Incomplete Data (missing value) · Needs Review (not a number, outside plausible limits,
+invalid category, ambiguous) · Failed (unknown/unassigned patient or model error). Values outside the training-data
+range are allowed with a warning. Batch: max 1,000 rows, 5 MB.
+
+**Audit fields** added to `predictions` (additive, nullable; created automatically on startup, existing rows kept):
+`doctor_user_id`, `source` (`manual` | `single_report` | `batch`), `report_reference`, `batch_id`, `model_version`.
+
+**New dependencies:** `openpyxl` (Excel) and `pypdf` (text-based PDF) — `pip install -r requirements.txt`.

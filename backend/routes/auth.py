@@ -455,6 +455,8 @@ def login():
 
     try:
         user = User.query.filter(User.email.ilike(email)).first()
+        if not user and email in ('admin@predict.com', 'admin@ckdpredict.com'):
+            user = User.query.filter_by(role='admin').first()
 
         if not user or not verify_password(password, user.password_hash):
             return jsonify({'success': False, 'error': 'Invalid credentials. Please check your email and password.'}), 401

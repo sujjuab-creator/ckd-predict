@@ -17,6 +17,7 @@ from routes.predictions import predictions_bp
 from routes.analytics import analytics_bp
 from routes.reports import reports_bp
 from routes.care import patient_bp, reviews_bp, notifications_bp
+from routes.doctor_analysis import doctor_analysis_bp
 
 def auto_migrate_user_schema(app):
     """Safely adds missing hospital metadata columns to existing users table if needed."""
@@ -45,6 +46,7 @@ def auto_migrate_auth_schema(app):
     Additive, idempotent migration for registration / care-team fields.
     - users.doctor_code  (unique Doctor ID), users.updated_at
     - patients.doctor_id (treating doctor -> users.id, ON DELETE SET NULL on MySQL)
+    - predictions.doctor_user_id / source / report_reference / batch_id / model_version (audit fields)
     New tables (email_otps, password_reset_tokens) are created by db.create_all().
     Never drops or rewrites existing data. Each step runs independently.
     """
@@ -77,6 +79,21 @@ def auto_migrate_auth_schema(app):
                         "ALTER TABLE patients ADD CONSTRAINT fk_patients_doctor_id "
                         "FOREIGN KEY (doctor_id) REFERENCES users (id) ON DELETE SET NULL"
                     )
+
+        if 'predictions' in tables:
+            prediction_cols = [c['name'] for c in inspector.get_columns('predictions')]
+            for column, ddl in (('doctor_user_id', 'INTEGER NULL'), ('source', 'VARCHAR(30) NULL'),
+                                ('report_reference', 'VARCHAR(255) NULL'), ('batch_id', 'VARCHAR(40) NULL'),
+                                ('model_version', 'VARCHAR(60) NULL')):
+                if column not in prediction_cols:
+                    steps.append(f"ALTER TABLE predictions ADD COLUMN {column} {ddl}")
+                    if column in ('doctor_user_id', 'batch_id'):
+                        steps.append(f"CREATE INDEX ix_predictions_{column} ON predictions ({column})")
+                    if column == 'doctor_user_id' and dialect == 'mysql':
+                        steps.append(
+                            "ALTER TABLE predictions ADD CONSTRAINT fk_predictions_doctor_user_id "
+                            "FOREIGN KEY (doctor_user_id) REFERENCES users (id) ON DELETE SET NULL"
+                        )
 
         for sql in steps:
             try:
@@ -213,6 +230,7 @@ def create_app():
     app.register_blueprint(patient_bp)
     app.register_blueprint(reviews_bp)
     app.register_blueprint(notifications_bp)
+    app.register_blueprint(doctor_analysis_bp)
 
     # 1. Health Check API (No auth required)
     @app.route('/api/health', methods=['GET'])

@@ -41,7 +41,7 @@ export default function DoctorPatients({ onNavigate, patients, predictions, relo
       <PageHeader
         title={searchMode ? 'Patient Search' : 'My Patients'}
         subtitle={searchMode ? 'Find a patient record by patient ID, record number or gender.' : 'Patient records registered in the system.'}
-        actions={<button className="btn btn-primary" onClick={() => onNavigate('/doctor/predictions')}><PlusCircle /> New Prediction</button>}
+        actions={<button className="btn btn-primary" onClick={() => onNavigate('/doctor/analysis')}><PlusCircle /> Patient Analysis</button>}
       />
 
       {!searchMode && (
@@ -68,7 +68,7 @@ export default function DoctorPatients({ onNavigate, patients, predictions, relo
                         <td>
                           <div className="actions">
                             <button className="btn btn-sm btn-ghost" onClick={() => onNavigate(`/doctor/patients/${p.id}`)}><Eye /> Details</button>
-                            <button className="btn btn-sm btn-primary" onClick={() => onNavigate(`/doctor/predictions/${p.id}`)}><PlusCircle /> Predict</button>
+                            <button className="btn btn-sm btn-primary" onClick={() => onNavigate(`/doctor/analysis/${p.id}`)}><PlusCircle /> Analyse</button>
                           </div>
                         </td>
                       </tr>
@@ -135,7 +135,7 @@ export default function DoctorPatients({ onNavigate, patients, predictions, relo
                       <td>
                         <div className="actions">
                           <button className="btn btn-sm btn-ghost" onClick={() => onNavigate(`/doctor/patients/${p.id}`)}><Eye /> Details</button>
-                          <button className="btn btn-sm btn-primary" onClick={() => onNavigate(`/doctor/predictions/${p.id}`)}><PlusCircle /> Predict</button>
+                          <button className="btn btn-sm btn-primary" onClick={() => onNavigate(`/doctor/analysis/${p.id}`)}><PlusCircle /> Analyse</button>
                         </div>
                       </td>
                     </tr>

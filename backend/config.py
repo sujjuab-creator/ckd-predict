@@ -1,13 +1,27 @@
 import os
 from dotenv import load_dotenv
-from sqlalchemy import create_engine
 
-# Load environment variables from backend/.env or project .env
-backend_env = os.path.join(os.path.dirname(__file__), '.env')
-if os.path.exists(backend_env):
-    load_dotenv(backend_env)
-else:
+from env_loader import BACKEND_ENV_FILE, load_backend_env
+
+
+def load_config_environment(env_file=BACKEND_ENV_FILE):
+    """
+    Load backend/.env (absolute path next to this file) with the reliable loader in env_loader.py:
+    UTF-8, UTF-8 with BOM and UTF-16 files are supported.
+    - DATABASE_URL: a non-empty value in backend/.env is used even if the environment has an
+      empty/stale DATABASE_URL.
+    - Every other variable: an existing environment variable (e.g. set on Render) keeps priority.
+    If backend/.env does not exist (e.g. on Render), the previous behaviour is kept: python-dotenv
+    looks for a project .env and never overrides existing environment variables.
+    Returns non-secret diagnostics (or None when backend/.env does not exist).
+    """
+    if os.path.isfile(env_file):
+        return load_backend_env(env_file)
     load_dotenv()
+    return None
+
+
+load_config_environment()
 
 from database_config import normalize_database_url, mysql_engine_options
 
@@ -38,24 +52,13 @@ def build_database_settings(flask_env, db_url):
             return uri, mysql_engine_options(connect_args)
         return uri, {}
 
-    if db_url and db_url.startswith('mysql'):
-        uri, connect_args = normalize_database_url(db_url)
-        try:
-            # Test MySQL connection in development
-            engine = create_engine(uri, connect_args={**connect_args, 'connect_timeout': 5})
-            conn = engine.connect()
-            conn.close()
-            engine.dispose()
-            return uri, mysql_engine_options(connect_args)
-        except Exception:
-            # Fallback to local SQLite database in development if MySQL is unreachable
-            return _sqlite_fallback_uri(), {}
-
     if db_url:
+        # An intended MySQL/Aiven DATABASE_URL is always used as configured - there is no silent
+        # fallback to SQLite. If the server is unreachable, the app reports the database error.
         uri, connect_args = normalize_database_url(db_url)
         return uri, (mysql_engine_options(connect_args) if uri.startswith('mysql') else {})
 
-    # Default local development fallback
+    # No DATABASE_URL at all: local development SQLite database
     return _sqlite_fallback_uri(), {}
 
 

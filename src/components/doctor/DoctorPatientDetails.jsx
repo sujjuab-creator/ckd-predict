@@ -36,7 +36,7 @@ export default function DoctorPatientDetails({ onNavigate, patients, predictions
         actions={(
           <>
             <button className="btn btn-ghost" onClick={() => onNavigate('/doctor/patients')}><ArrowLeft /> All patients</button>
-            <button className="btn btn-primary" onClick={() => onNavigate(`/doctor/predictions/${patient.id}`)}><PlusCircle /> New Prediction</button>
+            <button className="btn btn-primary" onClick={() => onNavigate(`/doctor/analysis/${patient.id}`)}><PlusCircle /> Patient Analysis</button>
           </>
         )}
       />
@@ -67,7 +67,7 @@ export default function DoctorPatientDetails({ onNavigate, patients, predictions
         <PredictionsTable
           predictions={list}
           onView={(p) => onNavigate(`/doctor/result/${p.id}`)}
-          emptyAction={<button className="btn btn-primary" onClick={() => onNavigate(`/doctor/predictions/${patient.id}`)}><PlusCircle /> Run prediction</button>}
+          emptyAction={<button className="btn btn-primary" onClick={() => onNavigate(`/doctor/analysis/${patient.id}`)}><PlusCircle /> Analyse patient</button>}
         />
       </Card>
 

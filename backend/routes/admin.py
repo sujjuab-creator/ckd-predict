@@ -3,6 +3,7 @@ from sqlalchemy.exc import OperationalError, DatabaseError, IntegrityError
 from extensions import db
 from models.user import User
 from models.patient import Patient
+from models.prediction import Prediction
 from utils.security import hash_password, token_required, roles_required
 from services.auth_service import normalize_doctor_code, is_valid_doctor_code
 
@@ -315,6 +316,8 @@ def delete_user(user_id):
         if user.role == 'doctor':
             # Keep patient records; only remove the treating-doctor link
             Patient.query.filter_by(doctor_id=user.id).update({'doctor_id': None})
+            # Keep predictions for the audit trail; only clear the reference to the deleted account
+            Prediction.query.filter_by(doctor_user_id=user.id).update({'doctor_user_id': None})
         db.session.delete(user)
         db.session.commit()
         return jsonify({
