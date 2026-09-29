@@ -214,6 +214,206 @@ def patient_reviews():
         return _db_unavailable()
 
 
+@patient_bp.route('/validate-csv', methods=['POST'])
+@token_required
+@roles_required('patient')
+def patient_validate_csv():
+    """
+    POST /api/patient/validate-csv
+    multipart/form-data: file (.csv)
+    Validates uploaded CSV file against feature schema and verifies patient scoping.
+    Does NOT store anything in the database.
+    """
+    try:
+        user = current_user()
+        patient = patient_record_for_user(user)
+        if not patient:
+            return jsonify({'success': False, 'error': 'No patient record found for this account.'}), 404
+
+        upload = request.files.get('file')
+        if not upload or not upload.filename:
+            return jsonify({'success': False, 'error': 'Choose a CSV file to upload.'}), 400
+
+        filename = upload.filename
+        if not filename.lower().endswith('.csv'):
+            return jsonify({'success': False, 'error': 'Invalid file type. Please upload a CSV file (.csv).'}), 400
+
+        content = upload.read()
+        if not content:
+            return jsonify({'success': False, 'error': 'The uploaded CSV file is empty.'}), 400
+        if len(content) > 5 * 1024 * 1024:
+            return jsonify({'success': False, 'error': 'File size exceeds maximum limit of 5 MB.'}), 400
+
+        import pandas as pd
+        import io
+        try:
+            df = pd.read_csv(io.BytesIO(content))
+        except Exception as e:
+            return jsonify({'success': False, 'error': f'Failed to parse CSV file: {str(e)}'}), 400
+
+        if df.empty:
+            return jsonify({'success': False, 'error': 'The CSV file contains no data rows.'}), 400
+
+        columns = [str(c).strip() for c in df.columns]
+
+        # Check patient ID column if present in CSV
+        patient_col = next((c for c in columns if c.lower().replace('-', '').replace('_', '').replace(' ', '') in ('patientid', 'patientcode', 'patient')), None)
+
+        if patient_col:
+            csv_patient_id = str(df.iloc[0].get(patient_col, '')).strip()
+            if csv_patient_id and patient.patient_id and csv_patient_id.lower() != patient.patient_id.lower():
+                return jsonify({
+                    'success': False,
+                    'status': 'invalid',
+                    'error': f'Uploaded CSV patient ID ("{csv_patient_id}") does not match your assigned patient ID ("{patient.patient_id}"). A patient cannot submit data for another patient ID.'
+                }), 403
+
+        if len(df) > 1 and patient_col:
+            unique_ids = df[patient_col].astype(str).str.strip().unique()
+            if len(unique_ids) > 1:
+                return jsonify({
+                    'success': False,
+                    'status': 'invalid',
+                    'error': 'The CSV contains rows for multiple patient IDs. Only single patient CSV uploads are supported in Patient Portal.'
+                }), 400
+
+        first_row = df.iloc[0].to_dict()
+        raw_features = {}
+        for k, v in first_row.items():
+            if patient_col and str(k).strip() == patient_col:
+                continue
+            raw_features[str(k).strip()] = '' if pd.isna(v) else str(v).strip()
+
+        from ml.feature_schema import validate_features
+        validation = validate_features(raw_features)
+        preview_fields = validation['fields']
+
+        if not validation['complete']:
+            status = 'needs_review' if validation['invalid'] else 'incomplete'
+            err_msg = 'CSV validation failed.'
+            if validation['missing']:
+                err_msg = f'{len(validation["missing"])} required feature(s) missing.'
+            elif validation['invalid']:
+                err_msg = f'{len(validation["invalid"])} feature(s) have invalid data.'
+
+            return jsonify({
+                'success': False,
+                'status': status,
+                'status_label': 'Invalid CSV' if validation['invalid'] else 'Incomplete CSV',
+                'error': f'{err_msg} Please fix the CSV and re-upload. Missing or invalid values are never filled automatically.',
+                'file_name': filename,
+                'fields': preview_fields,
+                'missing': validation['missing'],
+                'invalid': validation['invalid'],
+                'unknown': validation['unknown'],
+            }), 422
+
+        return jsonify({
+            'success': True,
+            'status': 'Valid CSV',
+            'status_label': 'Valid CSV',
+            'file_name': filename,
+            'patient_id': patient.patient_id,
+            'parsed_values': validation['values'],
+            'fields': preview_fields,
+            'warnings': [f for f in preview_fields if f['status'] == 'warning'],
+            'unknown': validation['unknown'],
+        }), 200
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'Validation failed: {str(e)}'}), 500
+
+
+@patient_bp.route('/predict-csv', methods=['POST'])
+@token_required
+@roles_required('patient')
+def patient_predict_csv():
+    """
+    POST /api/patient/predict-csv
+    JSON body: { features: { ... }, file_name: "patient_data.csv" }
+    Runs ML prediction for the caller's own patient record, saves Prediction & Report in DB.
+    """
+    try:
+        user = current_user()
+        patient = patient_record_for_user(user)
+        if not patient:
+            return jsonify({'success': False, 'error': 'No patient record found for this account.'}), 404
+
+        data = request.get_json(silent=True) or {}
+        features = data.get('features')
+        if not isinstance(features, dict):
+            return jsonify({'success': False, 'error': 'features dictionary is required.'}), 400
+
+        file_name = str(data.get('file_name') or 'patient_data.csv')[:150]
+
+        from ml.feature_schema import validate_features
+        validation = validate_features(features)
+
+        if not validation['complete']:
+            return jsonify({
+                'success': False,
+                'error': 'Cannot run prediction: CSV data is incomplete or invalid. Missing values are never filled automatically.',
+                'missing': validation['missing'],
+                'invalid': validation['invalid'],
+            }), 422
+
+        from services import analysis_service as svc
+        prediction_record, ml_result = svc.create_prediction(
+            patient,
+            validation['values'],
+            doctor=None,
+            source='patient_csv',
+            report_reference=file_name
+        )
+        db.session.flush()
+
+        from report_service import generate_pdf_report
+        pdf_res = generate_pdf_report(prediction_record, patient_info=patient, user_info=user)
+
+        report_code = pdf_res['report_id']
+        pdf_path = pdf_res['report_path']
+
+        report_record = Report(
+            report_id=report_code,
+            patient_id=patient.id,
+            prediction_id=prediction_record.id,
+            report_path=pdf_path,
+            status='generated'
+        )
+        db.session.add(report_record)
+        db.session.flush()
+
+        notify_patient_record(
+            patient, 'report', 'CKD Risk Assessment Completed',
+            f'Your CKD risk assessment report ({report_code}) is ready to download.',
+            f'/patient/reports/{report_record.id}',
+        )
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'prediction_id': f"PRED-{prediction_record.id:04d}",
+            'prediction': ml_result['prediction'],
+            'prediction_result': ml_result['prediction_result'],
+            'probability': ml_result['prediction_probability'],
+            'prediction_probability': ml_result['prediction_probability'],
+            'risk_percentage': ml_result['risk_percentage'],
+            'disclaimer': 'AI-Assisted Prediction — Not a Medical Diagnosis',
+            'report': {
+                'id': report_record.id,
+                'report_id': report_record.report_id,
+                'download_url': f"/api/reports/{report_record.report_id}/download",
+            }
+        }), 201
+
+    except (OperationalError, DatabaseError) as err:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': 'Database operation failed while saving prediction.', 'details': str(err)}), 500
+    except Exception as exc:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': f'Prediction execution failed: {str(exc)}'}), 500
+
+
 # ---------------------------------------------------------------------------
 # Doctor reviews
 # ---------------------------------------------------------------------------

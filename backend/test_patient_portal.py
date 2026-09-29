@@ -328,6 +328,79 @@ class PatientPortalTests(base.BaseCase):
         self.assertNotIn('total_doctors', data)
         self.assertEqual(self.get('/api/analytics/model-comparison', self.tok_da)[0], 200)
 
+    # ---- Patient CSV Validation and Prediction tests -------------------
+    def test_patient_csv_validation_and_prediction(self):
+        import io
+        import csv
+        from ml.feature_schema import FEATURE_SCHEMA
+        features = {}
+        for f in FEATURE_SCHEMA:
+            if f['type'] == 'select':
+                features[f['name']] = min(f['options'])
+            else:
+                lo, hi = f['range']
+                features[f['name']] = round((lo + hi) / 2, 2)
+        features.update({'Age': 61, 'SerumCreatinine': 2.1, 'GFR': 45, 'SystolicBP': 142, 'BMI': 28})
+
+        # Build valid CSV with matching patient ID header
+        with self.app.app_context():
+            p1_record = Patient.query.get(self.p1)
+            p1_code = p1_record.patient_id
+
+        csv_data = {'PatientID': p1_code, **features}
+        buf = io.StringIO()
+        writer = csv.writer(buf)
+        writer.writerow(list(csv_data.keys()))
+        writer.writerow(list(csv_data.values()))
+        csv_bytes = buf.getvalue().encode('utf-8')
+
+        # 1. Test Validate CSV endpoint
+        response = self.client.post(
+            '/api/patient/validate-csv',
+            data={'file': (io.BytesIO(csv_bytes), 'patient_data.csv')},
+            content_type='multipart/form-data',
+            headers={'Authorization': f'Bearer {self.tok_p1}'}
+        )
+        self.assertEqual(response.status_code, 200)
+        val_res = response.get_json()
+        self.assertTrue(val_res['success'])
+        self.assertEqual(val_res['status'], 'Valid CSV')
+
+        # 2. Test Patient Predict CSV endpoint
+        status, pred_res = self.post('/api/patient/predict-csv', {
+            'features': val_res['parsed_values'],
+            'file_name': 'patient_data.csv'
+        }, self.tok_p1)
+        self.assertEqual(status, 201)
+        self.assertTrue(pred_res['success'])
+        self.assertIn(pred_res['prediction_result'], ('CKD Risk', 'No CKD Risk'))
+        self.assertIn('report', pred_res)
+        self.assertIn('download_url', pred_res['report'])
+
+    def test_patient_csv_scoping_enforcement(self):
+        import io
+        import csv
+        features = self._features()
+
+        # Build CSV with ANOTHER patient's ID (e.g. PAT-9999 or p2's ID)
+        csv_data = {'PatientID': 'PAT-9999', **features}
+        buf = io.StringIO()
+        writer = csv.writer(buf)
+        writer.writerow(list(csv_data.keys()))
+        writer.writerow(list(csv_data.values()))
+        csv_bytes = buf.getvalue().encode('utf-8')
+
+        response = self.client.post(
+            '/api/patient/validate-csv',
+            data={'file': (io.BytesIO(csv_bytes), 'patient_data.csv')},
+            content_type='multipart/form-data',
+            headers={'Authorization': f'Bearer {self.tok_p1}'}
+        )
+        self.assertEqual(response.status_code, 403)
+        res_data = response.get_json()
+        self.assertFalse(res_data['success'])
+        self.assertIn('does not match your assigned patient ID', res_data['error'])
+
 
 if __name__ == '__main__':
     unittest.main()

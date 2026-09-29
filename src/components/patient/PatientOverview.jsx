@@ -35,9 +35,14 @@ export default function PatientOverview({ onNavigate }) {
             {d.patient?.patient_id && <> Your patient ID is <b className="mono">{d.patient.patient_id}</b>.</>}
           </p>
         </div>
-        <button className="btn btn-primary btn-lg" onClick={() => onNavigate('/patient/reports')}>
-          <FileText /> My Reports
-        </button>
+        <div className="row wrap" style={{ gap: 10 }}>
+          <button className="btn btn-primary btn-lg" onClick={() => onNavigate('/patient/predict')}>
+            <Sparkles /> Upload CSV Prediction
+          </button>
+          <button className="btn btn-outline btn-lg" onClick={() => onNavigate('/patient/reports')}>
+            <FileText /> My Reports
+          </button>
+        </div>
       </div>
 
       {res.error && <ErrorState message={res.error} onRetry={res.reload} />}
@@ -134,10 +139,10 @@ export default function PatientOverview({ onNavigate }) {
 
       <div className="grid-4">
         {[
+          { icon: Sparkles, tone: 'tone-blue', t: 'CKD Assessment', s: 'Upload CSV & predict', to: '/patient/predict' },
           { icon: FileText, tone: 'tone-green', t: 'My Reports', s: 'View and download PDFs', to: '/patient/reports' },
-          { icon: Stethoscope, tone: 'tone-blue', t: 'My Doctor', s: 'Your treating doctor', to: '/patient/doctor' },
+          { icon: Stethoscope, tone: 'tone-navy', t: 'My Doctor', s: 'Your treating doctor', to: '/patient/doctor' },
           { icon: Bell, tone: 'tone-amber', t: 'Notifications', s: 'Updates on your record', to: '/patient/notifications' },
-          { icon: BookOpen, tone: 'tone-navy', t: 'Kidney Health', s: 'Learn about CKD', to: '/patient/kidney-health' },
         ].map((q) => (
           <button key={q.t} className="card card-hover quick" onClick={() => onNavigate(q.to)}>
             <span className={`ic ${q.tone}`}><q.icon /></span>

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  LayoutDashboard, UserRound, Stethoscope, FileText, MessageSquareText, Bell, BookOpen, Settings,
+  LayoutDashboard, UserRound, Stethoscope, FileText, MessageSquareText, Bell, BookOpen, Settings, Activity, Sparkles, Upload,
 } from 'lucide-react';
 import DashboardLayout from '../layout/DashboardLayout';
 import apiService from '../../services/api';
@@ -13,11 +13,14 @@ import PatientReviews from '../patient/PatientReviews';
 import PatientNotifications from '../patient/PatientNotifications';
 import PatientKidneyHealth from '../patient/PatientKidneyHealth';
 import PatientSettings from '../patient/PatientSettings';
+import PatientCsvPredict from '../patient/PatientCsvPredict';
 
 const TITLES = {
   '/patient': 'Overview',
   '/patient/profile': 'My Profile',
   '/patient/doctor': 'My Doctor',
+  '/patient/predict': 'CKD Risk Assessment (CSV)',
+  '/patient/prediction': 'CKD Risk Assessment (CSV)',
   '/patient/reports': 'My Reports',
   '/patient/reviews': 'Doctor Reviews',
   '/patient/notifications': 'Notifications',
@@ -25,16 +28,15 @@ const TITLES = {
   '/patient/settings': 'Settings',
 };
 
-// Prediction tools are for doctors only. Old patient links to them are sent to the Overview.
+// Retired path list
 const RETIRED_PATHS = [
-  '/patient/prediction', '/patient/predictions', '/patient/history', '/patient/result',
+  '/patient/predictions', '/patient/history', '/patient/result',
   '/patient/shap', '/patient/analytics', '/patient/models', '/patient/model-comparison',
 ];
 
 /**
- * Patient portal. Every view reads from the authenticated, patient-scoped API
- * (/api/patient/*, /api/notifications). Patients cannot run predictions; the
- * backend enforces this independently of the UI.
+ * Patient portal. Allows patients to view their profile, doctor details,
+ * upload CSV data for CKD risk prediction & report generation, and view reports/reviews.
  */
 export default function PatientDashboard({ currentPath = '/patient', onNavigate }) {
   const [unread, setUnread] = useState(0);
@@ -68,6 +70,7 @@ export default function PatientDashboard({ currentPath = '/patient', onNavigate 
         { label: 'Overview', path: '/patient', icon: LayoutDashboard },
         { label: 'My Profile', path: '/patient/profile', icon: UserRound },
         { label: 'My Doctor', path: '/patient/doctor', icon: Stethoscope },
+        { label: 'CKD Risk Assessment', path: '/patient/predict', icon: Activity },
         { label: 'My Reports', path: '/patient/reports', icon: FileText },
         { label: 'Doctor Reviews', path: '/patient/reviews', icon: MessageSquareText },
         { label: 'Notifications', path: '/patient/notifications', icon: Bell, badge: unread },
@@ -88,6 +91,7 @@ export default function PatientDashboard({ currentPath = '/patient', onNavigate 
     if (retired) return null;
     if (base === '/patient/profile') return <PatientProfile {...ctx} />;
     if (base === '/patient/doctor') return <PatientDoctor {...ctx} />;
+    if (base === '/patient/predict' || base === '/patient/prediction') return <PatientCsvPredict {...ctx} />;
     if (base === '/patient/reports' && param) return <PatientReportDetail key={param} {...ctx} reportId={param} />;
     if (base === '/patient/reports') return <PatientReports {...ctx} />;
     if (base === '/patient/reviews') return <PatientReviews {...ctx} />;
