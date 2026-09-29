@@ -401,6 +401,43 @@ class PatientPortalTests(base.BaseCase):
         self.assertFalse(res_data['success'])
         self.assertIn('does not match your assigned patient ID', res_data['error'])
 
+    def test_report_download_filename_format(self):
+        import re
+        from routes.reports import get_report_download_filename
+        from datetime import datetime, timezone, timedelta
+
+        # 1. Test helper function with specific patient name and time
+        IST = timezone(timedelta(hours=5, minutes=30))
+        fixed_dt = datetime(2026, 9, 27, 14, 35, 22, tzinfo=IST)
+
+        class DummyUser:
+            name = "Rahul Sharma"
+        class DummyPatient:
+            patient_id = "PAT-0001"
+
+        fname = get_report_download_filename(DummyPatient(), DummyUser(), now_dt=fixed_dt)
+        self.assertEqual(fname, "Rahul_Sharma_CKD_Report_2026-09-27_14-35-22.pdf")
+
+        # 2. Test actual download endpoint Content-Disposition header for Patient
+        res = self.client.get(
+            f'/api/reports/{self.rep1}/download',
+            headers={'Authorization': f'Bearer {self.tok_p1}'}
+        )
+        self.assertEqual(res.status_code, 200)
+        disp = res.headers.get('Content-Disposition', '')
+        self.assertIn('Priya_One_CKD_Report_', disp)
+        self.assertIn('.pdf', disp)
+
+        # 3. Test Doctor download gets the same formatted filename
+        res_doc = self.client.get(
+            f'/api/reports/{self.rep1}/download',
+            headers={'Authorization': f'Bearer {self.tok_da}'}
+        )
+        self.assertEqual(res_doc.status_code, 200)
+        disp_doc = res_doc.headers.get('Content-Disposition', '')
+        self.assertIn('Priya_One_CKD_Report_', disp_doc)
+        self.assertIn('.pdf', disp_doc)
+
 
 if __name__ == '__main__':
     unittest.main()

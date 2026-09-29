@@ -163,6 +163,43 @@ def get_report_by_id(report_id):
         }), 503
 
 
+import re
+from datetime import datetime, timezone, timedelta
+
+IST = timezone(timedelta(hours=5, minutes=30))
+
+def get_report_download_filename(patient_record, user_record=None, now_dt=None):
+    """
+    Generates dynamic download filename in format:
+    {PatientName}_CKD_Report_{YYYY-MM-DD}_{HH-MM-SS}.pdf
+    
+    Uses local India time (IST / Asia-Kolkata, UTC+5:30).
+    Replaces spaces and unsafe characters with underscores.
+    """
+    raw_name = ""
+    if user_record and getattr(user_record, 'name', None):
+        raw_name = user_record.name
+    elif patient_record and getattr(patient_record, 'name', None):
+        raw_name = patient_record.name
+    elif patient_record and getattr(patient_record, 'patient_id', None):
+        raw_name = patient_record.patient_id
+    else:
+        raw_name = "Patient"
+
+    clean_name = re.sub(r'[^a-zA-Z0-9_-]', '_', str(raw_name))
+    clean_name = re.sub(r'_+', '_', clean_name).strip('_')
+    if not clean_name:
+        clean_name = "Patient"
+
+    if now_dt is None:
+        now_dt = datetime.now(IST)
+    elif now_dt.tzinfo is None:
+        now_dt = now_dt.replace(tzinfo=timezone.utc).astimezone(IST)
+
+    timestamp_str = now_dt.strftime('%Y-%m-%d_%H-%M-%S')
+    return f"{clean_name}_CKD_Report_{timestamp_str}.pdf"
+
+
 @reports_bp.route('/<report_id>/download', methods=['GET'])
 @token_required
 def download_report_file(report_id):
@@ -173,26 +210,29 @@ def download_report_file(report_id):
             return err
 
         pdf_path = report.report_path
+        patient_record = db.session.get(Patient, report.patient_id) if report.patient_id else None
+        user_record = db.session.get(User, patient_record.user_id) if patient_record and patient_record.user_id else None
+
         if not pdf_path or not os.path.exists(pdf_path):
-            # Hosting disks can be ephemeral (e.g. after a redeploy). Rebuild the PDF from the
-            # stored prediction with the existing generator; the report code is deterministic.
             prediction_record = db.session.get(Prediction, report.prediction_id) if report.prediction_id else None
             if prediction_record is None:
                 return jsonify({'success': False, 'error': f'Report file for ID {report_id} does not exist on server.'}), 404
-            patient_record = db.session.get(Patient, prediction_record.patient_id)
-            user_record = db.session.get(User, patient_record.user_id) if patient_record and patient_record.user_id else None
             pdf_res = generate_pdf_report(prediction_record, patient_info=patient_record, user_info=user_record)
             pdf_path = pdf_res['report_path']
             if report.report_path != pdf_path:
                 report.report_path = pdf_path
                 db.session.commit()
 
-        return send_file(
+        download_filename = get_report_download_filename(patient_record, user_record)
+
+        response = send_file(
             pdf_path,
             as_attachment=True,
-            download_name=os.path.basename(pdf_path),
+            download_name=download_filename,
             mimetype='application/pdf'
         )
+        response.headers['Access-Control-Expose-Headers'] = 'Content-Disposition'
+        return response
 
     except (OperationalError, DatabaseError) as err:
         return jsonify({

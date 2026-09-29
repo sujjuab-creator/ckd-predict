@@ -291,11 +291,21 @@ export const apiService = {
         } catch { /* non-JSON error body */ }
         return { ok: false, status: response.status, error: message };
       }
+
+      let serverFileName = null;
+      const disposition = response.headers.get('Content-Disposition');
+      if (disposition && disposition.includes('filename=')) {
+        const matches = /filename\*?=['"]?(?:UTF-8'')?([^;'"\r\n]+)['"]?/i.exec(disposition);
+        if (matches && matches[1]) {
+          serverFileName = decodeURIComponent(matches[1].trim().replace(/^["']|["']$/g, ''));
+        }
+      }
+
       const blob = await response.blob();
       const blobUrl = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = blobUrl;
-      a.download = `${fileName || reportId}.pdf`;
+      a.download = serverFileName || (fileName && !fileName.endsWith('.pdf') ? `${fileName}.pdf` : fileName) || `${reportId}.pdf`;
       document.body.appendChild(a);
       a.click();
       a.remove();
