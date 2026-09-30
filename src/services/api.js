@@ -395,20 +395,6 @@ export const apiService = {
       body: JSON.stringify({ file_name: fileName, rows }),
     });
   },
-
-  // 12. Patient CSV Assessment API
-  async validatePatientCsv(file) {
-    const form = new FormData();
-    form.append('file', file);
-    return await uploadAPI('/patient/validate-csv', form);
-  },
-
-  async predictPatientCsv(features, fileName) {
-    return await fetchAPI('/patient/predict-csv', {
-      method: 'POST',
-      body: JSON.stringify({ features, file_name: fileName }),
-    });
-  },
 };
 
 export default apiService;
