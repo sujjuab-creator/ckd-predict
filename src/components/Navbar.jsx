@@ -12,6 +12,7 @@ export const PUBLIC_SECTIONS = [
   { id: 'how-it-works', label: 'How It Works' },
   { id: 'faq', label: 'FAQ' },
   { id: 'contact', label: 'Contact' },
+  { id: 'about-us', label: 'About Us' },
 ];
 
 export function scrollToSection(id, currentPath, onNavigate) {

@@ -29,7 +29,7 @@ export default function Footer({ currentPath = '/', onNavigate }) {
           <div>
             <h4>Platform</h4>
             <ul>
-              {PUBLIC_SECTIONS.filter((s) => ['features', 'how-it-works', 'contact'].includes(s.id)).map((s) => (
+              {PUBLIC_SECTIONS.filter((s) => ['features', 'how-it-works', 'contact', 'about-us'].includes(s.id)).map((s) => (
                 <li key={s.id}><button onClick={() => go(s.id)}>{s.label}</button></li>
               ))}
             </ul>

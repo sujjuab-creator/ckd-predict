@@ -8,6 +8,7 @@ import KidneyIllustration from './brand/KidneyIllustration';
 import { MEDICAL_DISCLAIMER } from './ui/UI';
 import { scrollToSection } from './Navbar';
 import { ABOUT_CARDS, STAGES, HABITS } from '../data/kidneyEducation';
+import AboutUs from './home/AboutUs';
 
 const FEATURES = [
   { icon: Brain, tone: 'tone-green', title: 'AI-Assisted Prediction', text: 'A trained machine-learning model estimates CKD risk from the health information you supply and returns a risk label with a probability.' },
@@ -335,6 +336,9 @@ export default function Home({ onNavigate }) {
           </div>
         </div>
       </section>
+
+      {/* ---------------- ABOUT US ---------------- */}
+      <AboutUs />
 
       {/* ---------------- DISCLAIMER ---------------- */}
       <div className="disclaimer-band">
